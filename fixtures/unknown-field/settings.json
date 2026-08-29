@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "deny": [
+      "Bash",
+      "Edit",
+      "WebFetch",
+      "WebSearch",
+      "mcp__*"
+    ],
+    "disableBypassPermissionsMode": "disable",
+    "disableAutoMode": "disable",
+    "futureApprovalModel": true
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowedDomains": [],
+      "deniedDomains": [
+        "*"
+      ]
+    }
+  },
+  "hooks": {},
+  "mcpServers": {}
+}

@@ -1,0 +1,47 @@
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "deny": [
+      "Bash",
+      "Edit",
+      "WebFetch",
+      "WebSearch",
+      "mcp__*"
+    ],
+    "disableBypassPermissionsMode": "disable",
+    "disableAutoMode": "disable"
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "enableWeakerNestedSandbox": false,
+    "excludedCommands": [],
+    "filesystem": {
+      "denyWrite": [
+        "*"
+      ],
+      "denyRead": [],
+      "allowWrite": [],
+      "allowRead": [],
+      "allowManagedReadPathsOnly": true
+    },
+    "network": {
+      "allowedDomains": [],
+      "deniedDomains": [
+        "*"
+      ],
+      "allowUnixSockets": [],
+      "allowAllUnixSockets": false,
+      "allowLocalBinding": false,
+      "allowMachLookup": false
+    }
+  },
+  "hooks": {},
+  "mcpServers": {},
+  "enableAllProjectMcpServers": false,
+  "enabledMcpjsonServers": [],
+  "disabledMcpjsonServers": [],
+  "allowManagedMcpServersOnly": true,
+  "allowedMcpServers": [],
+  "deniedMcpServers": []
+}

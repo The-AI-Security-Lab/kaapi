@@ -1,0 +1,2 @@
+# Presence-only doctor fixture. P0 never parses this file.
+model = "presence-only"

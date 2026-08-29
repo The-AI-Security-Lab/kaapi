@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaapi.local/schemas/check-v1.schema.json",
+  "title": "Kaapi check result v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "kaapi_version", "baseline", "runtime", "subject", "posture", "counts", "fields_not_evaluated", "controls_evaluated", "passed_controls", "resolved_capability", "unknown_fields", "findings"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "kaapi_version": {"type": "string"},
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "control_count"],
+      "properties": {
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "control_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "runtime": {"const": "claude-code"},
+    "subject": {"type": "string"},
+    "posture": {"enum": ["PASS", "WARN", "FAIL"]},
+    "counts": {"$ref": "#/$defs/counts"},
+    "fields_not_evaluated": {"type": "integer", "minimum": 0},
+    "controls_evaluated": {"type": "integer", "minimum": 0},
+    "passed_controls": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "resolved_capability": {"$ref": "#/$defs/resolution"},
+    "unknown_fields": {"type": "array", "items": {"$ref": "#/$defs/unknown"}},
+    "findings": {"type": "array", "items": {"$ref": "#/$defs/finding"}}
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["critical", "high", "medium", "low", "info"],
+      "properties": {
+        "critical": {"type": "integer", "minimum": 0},
+        "high": {"type": "integer", "minimum": 0},
+        "medium": {"type": "integer", "minimum": 0},
+        "low": {"type": "integer", "minimum": 0},
+        "info": {"type": "integer", "minimum": 0}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "line", "path", "detail"],
+      "properties": {
+        "source": {"type": "string"},
+        "line": {"type": ["integer", "null"], "minimum": 1},
+        "path": {"type": "string"},
+        "detail": {"type": "string"}
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["label", "url", "accessed"],
+      "properties": {
+        "label": {"type": "string"},
+        "url": {"type": "string", "format": "uri"},
+        "accessed": {"type": "string", "format": "date"}
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source_type", "title", "layer", "observed", "inference", "severity", "confidence", "sources", "references", "remediation", "evidence", "why_severity"],
+      "properties": {
+        "id": {"type": "string"},
+        "source_type": {"const": "baseline"},
+        "title": {"type": "string"},
+        "layer": {"enum": ["approvals", "permissions", "sandbox", "network", "hooks", "mcp"]},
+        "observed": {"type": "string"},
+        "inference": {"type": "string"},
+        "severity": {"enum": ["info", "low", "medium", "high", "critical"]},
+        "confidence": {"type": "string"},
+        "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/source"}},
+        "references": {"type": "array", "maxItems": 0},
+        "remediation": {"type": "string"},
+        "evidence": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidence"}},
+        "why_severity": {"type": "string"}
+      }
+    },
+    "unknown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layer", "path", "source", "line"],
+      "properties": {
+        "layer": {"enum": ["approvals", "permissions", "sandbox", "network", "hooks", "mcp"]},
+        "path": {"type": "string"},
+        "source": {"type": "string"},
+        "line": {"type": ["integer", "null"], "minimum": 1}
+      }
+    },
+    "resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capabilities", "configured_mode", "mode_uncertain", "permission_counts", "scoped_rule_counts", "additional_directory_count", "bypasses", "bypass_locked", "auto_locked", "sandbox", "network", "hooks", "mcp"],
+      "properties": {
+        "capabilities": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "configured_mode": {"type": ["string", "null"]},
+        "mode_uncertain": {"type": "boolean"},
+        "permission_counts": {
+          "type": "object", "additionalProperties": false, "required": ["allow", "ask", "deny"],
+          "properties": {"allow": {"type": "integer"}, "ask": {"type": "integer"}, "deny": {"type": "integer"}}
+        },
+        "scoped_rule_counts": {"type": "object"},
+        "additional_directory_count": {"type": "integer", "minimum": 0},
+        "bypasses": {
+          "type": "array", "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["mechanism", "source_kind", "source", "path", "line"],
+            "properties": {"mechanism": {"type": "string"}, "source_kind": {"type": "string"}, "source": {"type": "string"}, "path": {"type": "string"}, "line": {"type": ["integer", "null"]}}
+          }
+        },
+        "bypass_locked": {"type": "boolean"},
+        "auto_locked": {"type": "boolean"},
+        "sandbox": {"type": "object"},
+        "network": {"type": "object"},
+        "hooks": {"type": "array", "items": {"type": "object"}},
+        "mcp": {"type": "object"}
+      }
+    }
+  }
+}

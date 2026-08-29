@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "deny": ["Bash", "Edit", "WebFetch"],
+    "disableBypassPermissionsMode": "disable"
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowedDomains": [],
+      "deniedDomains": ["*"]
+    }
+  }
+}

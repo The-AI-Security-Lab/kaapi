@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "deny": [
+      "Bash",
+      "WebFetch",
+      "WebSearch"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "allowUnsandboxedCommands": false,
+    "network": {
+      "allowedDomains": [],
+      "deniedDomains": [
+        "*"
+      ]
+    }
+  },
+  "hooks": {},
+  "mcpServers": {}
+}

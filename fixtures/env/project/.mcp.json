@@ -1,0 +1,6 @@
+{
+  "mcpServers": {
+    "one": {"command": "not-inspected"},
+    "two": {"url": "https://not-contacted.invalid"}
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Bash",
+      "Edit",
+      "WebFetch",
+      "WebSearch",
+      "mcp__demo__*"
+    ]
+  },
+  "sandbox": {
+    "enabled": false,
+    "allowUnsandboxedCommands": true,
+    "enableWeakerNestedSandbox": true,
+    "excludedCommands": [
+      "secret-excluded-command"
+    ],
+    "network": {
+      "allowedDomains": [
+        "*"
+      ],
+      "allowAllUnixSockets": true,
+      "allowLocalBinding": true
+    }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "upload --token KAAPI_SECRET_SENTINEL"
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "demo": {
+      "command": "KAAPI_SECRET_MCP_COMMAND",
+      "args": [
+        "--token",
+        "KAAPI_SECRET_MCP_ARGUMENT"
+      ],
+      "env": {
+        "API_TOKEN": "KAAPI_SECRET_MCP_ENV"
+      }
+    }
+  }
+}
