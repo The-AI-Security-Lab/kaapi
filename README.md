@@ -9,6 +9,27 @@ P0 analyses Claude Code only. Codex, Cursor, Gemini, GitHub Copilot,
 organisational policy overlays, blast radius, OWASP mappings, SARIF, and
 `explain` are not available.
 
+## Project status
+
+P0 is complete against `docs/KAAPI_BUILD_SPEC_v1.3.md`. The P0 test suite
+passes with 96 tests. The build specification is the authoritative recreation
+contract; implementation decisions are recorded in `Decisions.MD`.
+
+The maintained project wiki starts at [`wiki/index.md`](wiki/index.md). It is
+an evolving documentation layer; it does not replace the build specification
+or the decision log.
+
+The `Claude Settings Test Suite` is a separate, non-gating adversarial
+security-review benchmark and is not part of the P0 acceptance gate.
+
+## Roadmap
+
+- P1: Codex support.
+- P1: Custom organisational security-policy overlays.
+- P2: Cursor, Gemini, and GitHub Copilot support.
+
+The planned Kaapi roadmap currently ends at P2.
+
 ## Requirements and setup
 
 Use Python 3.11 or later and `uv`:
