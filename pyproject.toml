@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "kaapi"
-version = "1.0.0"
-description = "Deterministic local-first Claude Code security posture analysis"
+version = "1.1.0"
+description = "Deterministic local-first coding-agent security posture analysis"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}

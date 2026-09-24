@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "id": "reference.claude-bash-ls-la-only",
+  "domain": "shell",
+  "runtimes": ["claude-code"],
+  "requirements": [
+    {
+      "control_id": "AGENT-PERM-001",
+      "expectation": "pass",
+      "parameters": {
+        "allowed_bash_rule_patterns": ["ls -la"],
+        "required_bash_rule_patterns": ["ls -la"],
+        "max_bash_allow_rules": 1,
+        "require_default_deny": true
+      }
+    }
+  ]
+}

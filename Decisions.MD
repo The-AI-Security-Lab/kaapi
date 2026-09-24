@@ -452,6 +452,225 @@ only by a later entry that explicitly names the earlier decision.
 - Authoritative source: Claude Code settings
   (`https://code.claude.com/docs/en/settings`), accessed 2026-08-29.
 
+## DEC-033 — Composable closed-domain policy bundles
+
+- Date: 2026-08-30
+- Context: Teams need reusable restrictions for approvals, shell, filesystem,
+  sandbox, network, hooks, and MCP, and must be able to apply one restriction
+  or a maintained set. The initial count-only overlay could not express common
+  requirements such as a named MCP allowlist.
+- Decision: Extend policy schema version 1 backward-compatibly with optional
+  `domain` and `runtimes` metadata and a closed, typed parameter set attached
+  only to known baseline controls. Make `--policy` repeatable and add
+  repeatable `--policy-dir`; directory JSON files load in filename order and
+  evaluated policies sort by unique policy ID. Aggregate verdict is `FAIL` if
+  any policy fails, otherwise `PERMITTED_RISK` if any policy permits a
+  baseline risk, otherwise `PASS`. An unsupported runtime, unavailable
+  control, or unavailable parameter fails explicitly.
+- Rationale: Small domain files can be owned by different security teams and
+  composed without introducing expressions, code execution, severity
+  overrides, or a generic policy language.
+- Alternatives considered: One monolithic policy, natural-language rules,
+  executable predicates, and silent skipping of runtime-specific domains;
+  rejected as respectively hard to maintain, nondeterministic, unsafe, or
+  liable to false assurance.
+- Affected files: Policy parser/evaluator/schema, CLI, renderers, reference
+  policies, README, wiki, and policy tests.
+- Validation: Single, repeated, and directory policy loading; duplicate
+  rejection; deterministic bundle ordering; aggregate verdicts; runtime
+  mismatch; schema validation; and baseline non-suppression.
+
+## DEC-034 — Policy comparisons are minimized and fail closed
+
+- Date: 2026-08-30
+- Context: Named MCP allowlists, exact Claude Bash permission patterns,
+  filesystem deny patterns, and network domains require comparison with raw
+  configuration values. Those values can expose internal infrastructure or
+  command material if copied into reports.
+- Decision: Keep raw Bash patterns, filesystem paths, and network domains as
+  non-serialized internal facts and expose only comparison counts, booleans,
+  modes, and verdicts in the policy result. MCP server keys are matched exactly
+  and case-sensitively for Claude and Codex; Claude's existing resolved MCP
+  metadata may still expose selected server names, but commands, arguments,
+  environment values, URLs, and other secret-bearing values retain the P0/P1
+  redaction contract. Claude Bash policies compare configured
+  `Bash(specifier)` allow rules and can require `dontAsk`; they do not claim
+  that the configured rule is the only runtime-executable command because
+  Claude has a built-in read-only command set. Codex Starlark `.rules` files
+  are not an observed P1 input, so exact Codex command-pattern policies fail as
+  unsupported rather than passing from `config.toml` alone.
+- Rationale: This provides useful enforceable configuration restrictions while
+  minimizing new report exposure and avoiding claims beyond the established
+  runtime output contract.
+- Alternatives considered: Echo unexpected values, hash them into output,
+  treat count one as an identity allowlist, or infer Codex command rules from
+  approval mode; rejected because each would leak information or produce
+  misleading compliance.
+- Affected files: Claude and Codex normalizers, policy evaluator, schemas,
+  reference policies, documentation, and secret-safety tests.
+- Validation: GitHub-only MCP known answers for both runtimes; policy-result
+  count projections; Bash sentinel redaction; exact Claude pattern pass/fail;
+  and explicit Codex rejection for a Claude-only shell policy.
+- Authoritative sources: Claude Code permission rules
+  (`https://code.claude.com/docs/en/permissions`) and OpenAI's Codex rules and
+  managed-configuration description
+  (`https://openai.com/index/running-codex-safely/`), accessed 2026-08-30.
+
+## DEC-027 — P1 scope is the v1.3 roadmap, not v1.2 candidates
+
+- Date: 2026-08-30
+- Context: The implementation brief listed Codex, organisational policy,
+  blast-radius, Arcanum/OWASP mapping, and SARIF as expected areas, but also
+  made v1.3 authoritative. Section 15 marks only Codex configuration and custom
+  organisational policies as P1. It explicitly describes blast radius,
+  Arcanum/OWASP mappings, and SARIF as unavailable historical candidates that
+  are not delivery commitments.
+- Decision: Implement only Codex configuration support and organisational
+  policy overlays. Leave blast-radius, Arcanum, OWASP, SARIF, and P2 surfaces
+  unavailable.
+- Rationale: This follows the user's spec-wins rule and prevents historical
+  design candidates from silently becoming product commitments.
+- Alternatives considered: Implement every area named in the brief summary;
+  rejected because it conflicts with the exact v1.3 P1 roadmap.
+- Affected files: Entire P1 change set and documentation.
+- Validation: CLI tests continue to reject SARIF, OWASP, `explain`, Cursor,
+  Gemini, and GitHub Copilot surfaces.
+
+## DEC-028 — Thin Codex TOML adapter and observation boundary
+
+- Date: 2026-08-30
+- Context: P1 requires Codex configuration support without replacing the P0
+  normalized core. Current Codex uses TOML layers and security semantics that
+  differ from Claude Code JSON.
+- Decision: Add a standard-library `tomllib` adapter for explicit
+  `config.toml` files and conservative system/user discovery. Evaluate the
+  observed `approval_policy`, `approvals_reviewer`, `sandbox_mode`,
+  `sandbox_workspace_write`, `web_search`, `allow_login_shell`,
+  `features.network_proxy`, and `mcp_servers` surfaces. Merge system below
+  user values. Detect but do not apply project `.codex/config.toml` during
+  discovery unless trust becomes a separately supported observed input;
+  explicit project-file analysis remains supported. Unsupported security
+  surfaces such as permission profiles, hooks, apps, plugins, skills, and
+  other feature flags produce layer-specific unknown-field findings.
+- Rationale: This provides useful P1 coverage while preserving observed-only
+  reasoning and avoiding guessed trust, managed-requirements, CLI-override,
+  rule, or hook semantics.
+- Alternatives considered: Reinterpret Codex TOML as Claude settings; rejected
+  as semantically incorrect. Load project config merely because it exists;
+  rejected because official behavior requires project trust.
+- Affected files: `kaapi/codex.py`, parser precedence, analysis orchestration,
+  CLI runtime selection, fixtures, and tests.
+- Validation: Strict TOML, explicit-path, runtime auto-selection, precedence,
+  unobserved-trust, unknown-field, determinism, offline, read-only, and secret
+  redaction tests.
+- Authoritative sources: OpenAI Codex configuration reference
+  (`https://learn.chatgpt.com/docs/config-file/config-reference`), config
+  basics (`https://learn.chatgpt.com/docs/config-file/config-basic`), advanced
+  configuration
+  (`https://learn.chatgpt.com/docs/config-file/config-advanced`), and agent
+  approvals and security
+  (`https://learn.chatgpt.com/docs/agent-approvals-security`), accessed
+  2026-08-30.
+
+## DEC-029 — Codex normalization and runtime-specific baseline 0.4.0
+
+- Date: 2026-08-30
+- Context: P0's 0.3.1 baseline metadata and evidence are Claude-specific and
+  must remain frozen, while common control IDs have meaningful Codex
+  equivalents.
+- Decision: Preserve baseline 0.3.1 byte-for-byte for Claude and add a
+  declarative Codex baseline projection at version 0.4.0. Reuse stable common
+  IDs for approval/sandbox bypass, automatic approval review, unprompted shell
+  and writes, sandbox absence/escalation, unbounded outbound capability, MCP,
+  and unknown fields. Normalize Codex into the existing `Resolution` shape
+  without claiming runtime enforcement, command execution, MCP connection, or
+  network activity. Apply documented web-search defaults: cached normally and
+  live for a full-access sandbox when not explicitly set.
+- Rationale: Runtime-specific provenance avoids falsely citing Claude sources
+  for Codex findings and keeps every P0 check document unchanged.
+- Alternatives considered: Mutate baseline 0.3.1 to cover Codex or hard-code
+  findings outside the declarative baseline; rejected respectively as a P0
+  compatibility break and an architectural regression.
+- Affected files: Codex baseline data, baseline loader/evaluator, resolver
+  projection, check schema, snapshot runtime handling, and `rules --runtime`.
+- Validation: Codex hardened, auto, and danger known answers; baseline
+  provenance validation; snapshot compatibility; JSON Schema; full P0
+  regression.
+
+## DEC-030 — Closed organisational policy schema
+
+- Date: 2026-08-30
+- Context: P1 policies must select and parameterise known controls without
+  becoming a generic or executable policy engine.
+- Decision: Define `policy.schema.json` with exactly `schema_version`,
+  `id`, and a non-empty `requirements` array. Each requirement names one
+  known control and uses expectation `pass` or `allow`. Reject duplicate
+  keys, unknown object keys, duplicate or unknown control IDs, unsupported
+  expectations, and every executable/script/template shape. Support only
+  non-negative count parameters backed by existing normalized facts:
+  `max_configured_servers` for `AGENT-MCP-001`,
+  `max_excluded_commands` for `AGENT-SBOX-004`, and
+  `max_command_hooks` for `AGENT-HOOK-001`.
+- Rationale: The format is deterministic data and cannot create new scanner
+  semantics or execute arbitrary logic.
+- Alternatives considered: Python expressions, JSONPath predicates, templates,
+  user-authored rules, or severity overrides; rejected because they would form
+  a generic executable policy engine or permit baseline redefinition.
+- Affected files: `kaapi/policy.py`, policy schema, example policies, CLI,
+  and policy tests.
+- Validation: Independent `policy validate`, JSON Schema examples, malformed
+  and duplicate input, unknown keys/controls/parameters, executable-shape
+  rejection, offline/read-only operation, collision protection, and secret-safe
+  errors.
+
+## DEC-031 — Independent policy verdict and PERMITTED_RISK
+
+- Date: 2026-08-30
+- Context: The built-in baseline answers whether a configuration is risky;
+  organisation policy separately answers whether that configuration meets
+  organisation requirements.
+- Decision: Keep `posture`, counts, findings, severities, and passed controls
+  unchanged when a policy is supplied. Add explicit `security_posture` and
+  `organisation_policy.verdict` fields. A required failing control yields
+  policy `FAIL`; an explicit `allow`, or a satisfied organisation count
+  threshold that disagrees with a baseline finding, yields
+  `PERMITTED_RISK`; otherwise policy passes. Policy `FAIL` exits 1 even when
+  `--fail-on none` disables the security gate. `PERMITTED_RISK` does not
+  suppress the independent baseline gate. A requirement for a control that
+  does not exist in the active runtime baseline fails explicitly rather than
+  being ignored or treated as satisfied.
+- Rationale: The disagreement remains visible and machine-readable without
+  turning baseline risk green.
+- Alternatives considered: Remove permitted findings, downgrade severity, or
+  combine security and compliance into one verdict; rejected by the P1 policy
+  boundary.
+- Affected files: Policy evaluator, CLI, pretty/quiet/JSON rendering, check
+  schema, and tests.
+- Validation: Byte-for-byte finding comparison with and without policy,
+  separate-verdict tests, threshold and allow known answers, deterministic
+  output, and JSON Schema validation.
+
+## DEC-032 — P0 compatibility and P1 release metadata boundary
+
+- Date: 2026-08-30
+- Context: The brief freezes `v1.0.0` as the known-good P0 baseline and
+  requires every P0 test and behavior to remain green. It does not assign a
+  Kaapi package release number to the P1 milestone.
+- Decision: Do not retag, commit, publish, or invent a new package version in
+  this implementation task. Preserve the existing default Claude runtime,
+  baseline 0.3.1, six P0 fixture outcomes, check JSON version 1, and
+  `kaapi 1.0.0` version output. Extend existing schemas only with optional P1
+  fields and runtime values. Runtime-specific Codex snapshots use baseline
+  0.4.0 and cannot be compared with Claude snapshots.
+- Rationale: This keeps the stable baseline reproducible while leaving release
+  numbering and tagging to an explicit release decision.
+- Alternatives considered: Bump the package to 1.1.0 or rewrite P0 goldens;
+  rejected as an unrequested release action.
+- Affected files: Package version remains unchanged; schemas and snapshots gain
+  backward-compatible runtime support.
+- Validation: All original P0 tests pass alongside P1 tests; specification
+  checksum remains unchanged.
+
 ## DEC-024 — Output/input collision protection
 
 - Date: 2026-08-29
@@ -510,3 +729,179 @@ only by a later entry that explicitly names the earlier decision.
   additional-directory count, scoped residual, schema, and secrecy tests.
 - Authoritative source: Claude Code settings
   (`https://code.claude.com/docs/en/settings`), accessed 2026-08-29.
+
+## DEC-035 — Kaapi remains independent; Charlie is a consumer
+
+- Date: 2026-09-14
+- Context: An architecture audit evaluated whether the current Kaapi P0/P1
+  implementation should provide Charlie's first deterministic configured-
+  authority capability. Kaapi already has an independent purpose, tested
+  Claude and Codex analysis, deterministic baselines, normalized capabilities,
+  evidence/provenance, organisational policy, snapshots, verification,
+  discovery/precedence, doctor, and a standalone CLI.
+- Decision: Kaapi remains an independent project and is not renamed Charlie,
+  reduced to Charlie's backend, or narrowed to Charlie's first use case. Its
+  current core primitive is deterministic static analysis of configured agent
+  authority, producing normalized capabilities, baseline security findings,
+  and source evidence/provenance. Charlie is a consumer of that reusable
+  capability through a thin integration boundary:
+
+  ```text
+  Charlie
+    → thin integration boundary
+    → Kaapi
+    → configured capabilities + findings + evidence
+  ```
+
+  Other tools and users must remain able to use Kaapi independently.
+- Ownership boundary: Kaapi owns supported-agent parsing, configuration
+  discovery and precedence/resolution, normalized configured authority,
+  deterministic baseline evaluation, findings, evidence/provenance,
+  organisational-policy evaluation, and deterministic CLI behavior. Charlie
+  owns the Charlie web experience, paste/upload handling, user-facing
+  presentation, any hosted HTTP/API boundary, configured-versus-expected
+  visualization/workflow, future runtime telemetry unless separately decided,
+  and orchestration of additional security components.
+- Terminology: In Kaapi, `observed` refers to observed configuration/source
+  inputs. It does not mean that an agent action was observed at runtime. The
+  broader Charlie model distinguishes `CONFIGURED` (authority inferred from
+  configuration), `EXPECTED` (authority intended or permitted by policy), and
+  `OBSERVED` (runtime behavior actually seen). Kaapi currently provides strong
+  `CONFIGURED` support and foundations for `EXPECTED`, but does not provide the
+  `OBSERVED` runtime telemetry layer.
+- Future integration direction: The currently recommended, non-implemented
+  shape is a Charlie-owned backend adapter calling a stable Kaapi Python API,
+  which in turn uses the existing deterministic analysis pipeline. A likely
+  small Kaapi adaptation is an in-memory entry point accepting configuration
+  text/bytes plus runtime information and returning the existing versioned
+  structured result. This is a recommendation for future work, not an
+  irreversible API or an implementation decision. CLI/subprocess integration
+  remains a fallback, not the preferred boundary. Kaapi must not gain an HTTP
+  service merely to serve Charlie.
+- Current limitations preserved: Kaapi has no runtime telemetry, runtime
+  enforcement, hosted API, or natural-language policy interpretation. It does
+  not analyze Codex `.rules` files or observe project trust. Environment
+  exposure is only partially modeled. Codex `allow_login_shell` is parsed and
+  validated but does not currently materially affect resolution or findings.
+  Codex support is tested but less extensively than Claude support.
+- Rationale: This preserves Kaapi's independent product identity and tested
+  security boundary while making Charlie's consumer relationship explicit.
+  It prevents a future web integration from duplicating or silently narrowing
+  Kaapi's deterministic analysis and keeps runtime telemetry outside the
+  current static-analysis contract.
+- Alternatives considered: Rename Kaapi to Charlie, move Kaapi behind a new
+  Kaapi HTTP service, duplicate the analyzer in Charlie, or use only the CLI;
+  rejected respectively because they erase independent identity, add an
+  unneeded deployment boundary, risk semantic drift, or provide a less natural
+  interactive library seam. CLI use remains available as a fallback.
+- Relationship to earlier decisions: This entry clarifies and preserves
+  DEC-002, DEC-003, DEC-007, DEC-010 through DEC-014, DEC-027 through DEC-034,
+  and the existing P0/P1 scope. It contradicts or supersedes none of them.
+- Affected files: Decision and architecture documentation only. No production
+  code, tests, schemas, fixtures, or inspected configuration are changed by
+  this decision-record pass.
+- Validation: Documentation links/checks and the existing full P0+P1 test gate.
+
+## DEC-036 — Stable in-memory analysis facade
+
+- Date: 2026-09-15
+- Context: DEC-035 recorded a likely future small Kaapi adaptation: an
+  in-memory entry point for a Charlie-owned adapter. Kaapi's existing flow
+  already separates parsing into source layers from shared resolution,
+  baseline evaluation, and versioned result construction, so a true in-memory
+  path is possible without temporary files or a second analysis implementation.
+- Decision: Expose `kaapi.analyze_text(content, *, runtime, source=None)` as a
+  deliberately small, supported public library facade. `content` accepts
+  UTF-8 `str` or `bytes`; `runtime` must explicitly be `claude-code` or
+  `codex`; and an optional logical `source` identifier is used for evidence.
+  The default source is a deterministic synthetic in-memory identifier. The
+  function returns Kaapi's existing versioned structured analysis document and
+  raises the existing programmatic `ConfigError` for parse/validation errors.
+  The first facade version does not add policy parameters or broaden the
+  organisational-policy model.
+- Implementation boundary: The facade parses directly into the existing
+  `SourceLayer` model, uses the existing runtime merge functions, and calls the
+  shared analysis-document builder used by the file-backed API. It does not
+  write, read back, or persist a temporary configuration file. Existing CLI
+  behavior and the standalone Kaapi project remain unchanged.
+- Charlie relationship: Charlie is one intended consumer, but this is a
+  general Kaapi capability. A future Charlie-owned HTTP/backend adapter may
+  call this facade; no HTTP service, Charlie backend, or Charlie UI is added
+  here. CLI/subprocess use remains a supported fallback.
+- Rationale: This establishes the smallest clean in-process boundary while
+  preserving identical parsing, normalization, controls, findings, evidence,
+  redaction, and structured-result semantics for Claude and Codex.
+- Alternatives considered: Create temporary files and reuse the path API,
+  duplicate the analyzer for text input, add a broad SDK, add HTTP endpoints,
+  or expand policy handling in the first facade; rejected respectively because
+  they weaken the in-memory boundary, risk semantic drift, increase scope, or
+  belong to a later integration decision.
+- Relationship to earlier decisions: This refines the non-implemented future
+  recommendation in DEC-035 and preserves DEC-002, DEC-007, DEC-010 through
+  DEC-014, DEC-027 through DEC-034, and all existing P0/P1 semantics. It does
+  not change any security control or baseline rule.
+- Affected files: `kaapi/__init__.py`, `kaapi/analyze.py`,
+  `kaapi/parser.py`, `kaapi/codex.py`, focused facade tests, and documentation.
+- Validation: Focused facade tests cover Claude/Codex known answers, malformed
+  input, unknown fields, deterministic execution, secret redaction, no
+  persistence, and parity with CLI analysis. The complete P0+P1 suite remains
+  the release gate.
+
+## DEC-037 — Release P1 as Kaapi v1.1.0
+
+- Date: 2026-09-24
+- Context: P0 is published as Git tag `v1.0.0`. P1 adds a backward-compatible
+  expansion of supported runtimes and policy analysis, plus the in-process
+  analysis facade recorded in DEC-036. The release needs an application
+  version distinct from the independently versioned security baselines.
+- Decision: Release the completed P1 milestone as package version `1.1.0` and
+  annotated Git tag `v1.1.0` from branch `p1`. The release contains Codex TOML
+  analysis, organisational policy-as-code, and
+  `kaapi.analyze_text(content, *, runtime, source=None)`, while preserving all
+  P0 behavior. Baseline versions `0.3.1` (Claude Code) and `0.4.0` (Codex) are
+  data/control versions and do not track the package version.
+- Publication boundary: Publish the existing `p1` branch and the annotated
+  tag to the configured Git remote. Do not merge the branch, publish to a
+  package registry, create a P2 branch, or implement P2/P3 functionality as
+  part of this release.
+- Rationale: `1.1.0` communicates a backward-compatible capability milestone
+  after `v1.0.0`, while leaving security-baseline provenance unambiguous.
+- Relationship to earlier decisions: This replaces only DEC-027's temporary
+  instruction to retain package version `1.0.0` until release approval. It
+  preserves DEC-027's P1 implementation scope and all P0/P1 architecture and
+  security decisions.
+- Validation: Full P0+P1 tests, documented CLI/API/policy workflows,
+  deterministic and offline checks, package build, isolated installation, and
+  fresh-checkout verification are release gates.
+
+## DEC-038 — Reclassify the post-P1 roadmap
+
+- Date: 2026-09-24
+- Context: Tech Spec v1.3 is frozen historical authority for P0/P1. After P1,
+  the product priority changed from the specification's non-binding future
+  feature list to integration with the AI Security Lab evaluation workflow and
+  a reusable deterministic API boundary.
+- Decision: Classify P2 as **Evaluation Integration & API**. Its planned scope
+  is organisational-policy support through the public Python API; a small,
+  versioned, deterministic HTTP API; reuse of the existing Kaapi engine;
+  optional evaluation of Cloudflare as a hosting platform; integration with
+  the AI Security Lab golden evaluation dataset and deterministic verification
+  harness; CLI/Python/HTTP assessment equivalence for equivalent supported
+  inputs; and preservation of evidence levels, limitations, and inconclusive
+  or not-tested outcomes. This phase supports the methodology
+  `Define -> Design Evals -> Harden -> Verify -> Monitor` without making Kaapi
+  the complete evaluation or runtime-verification platform.
+- P3 classification: Move model-narrated `kaapi explain`, blast-radius
+  modelling, Arcanum/OWASP mappings, SARIF, additional coding-agent adapters,
+  and the remaining former P2 feature backlog to P3. P3 remains an uncommitted
+  backlog rather than a promise to implement every item.
+- Architectural boundary: Kaapi remains a deterministic security-analysis
+  engine. Neither an LLM nor runtime execution is required for P2. Runtime
+  telemetry, enforcement verification, continuous monitoring, and broader
+  workflow governance remain outside Kaapi's core responsibility unless a
+  later decision explicitly changes that boundary.
+- Specification handling: Do not rewrite Tech Spec v1.3. This decision
+  supersedes only its non-binding post-P1 roadmap classification; it does not
+  change the implemented P0/P1 requirements, DEC-027's P1 scope, or DEC-035
+  and DEC-036's project and API boundaries.
+- Implementation status: P2 and P3 are not implemented in `v1.1.0`.

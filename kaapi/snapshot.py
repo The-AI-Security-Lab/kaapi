@@ -18,20 +18,26 @@ class SnapshotError(Exception):
     pass
 
 
-def make_snapshot(document: dict[str, Any], merged_data: dict[str, Any]) -> dict[str, Any]:
+def make_snapshot(
+    document: dict[str, Any],
+    merged_data: dict[str, Any],
+    runtime: str = "claude-code",
+) -> dict[str, Any]:
     canonical = json.dumps(merged_data, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
     return {
         "schema_version": "1",
         "kaapi_version": __version__,
-        "baseline_version": load_baseline()["version"],
-        "runtime": "claude-code",
+        "baseline_version": load_baseline(runtime)["version"],
+        "runtime": runtime,
         "capabilities": list(document["resolved_capability"]["capabilities"]),
         "config_fingerprint": "sha256:" + hashlib.sha256(canonical).hexdigest(),
         "findings": sorted(item["id"] for item in document["findings"]),
     }
 
 
-def load_snapshot(path: str | Path) -> dict[str, Any]:
+def load_snapshot(
+    path: str | Path, runtime: str = "claude-code"
+) -> dict[str, Any]:
     snapshot_path = Path(path)
     try:
         value = json.loads(snapshot_path.read_text(encoding="utf-8"))
@@ -41,9 +47,9 @@ def load_snapshot(path: str | Path) -> dict[str, Any]:
         raise SnapshotError("snapshot contract error: malformed snapshot object")
     if value.get("schema_version") != "1":
         raise SnapshotError(f"snapshot contract error: unsupported schema_version {value.get('schema_version')!r}")
-    if value.get("runtime") != "claude-code":
+    if value.get("runtime") != runtime:
         raise SnapshotError(f"snapshot contract error: unsupported runtime {value.get('runtime')!r}")
-    if value.get("baseline_version") != load_baseline()["version"]:
+    if value.get("baseline_version") != load_baseline(runtime)["version"]:
         raise SnapshotError("snapshot contract error: incompatible baseline version")
     if not isinstance(value.get("capabilities"), list) or any(not isinstance(item, str) for item in value["capabilities"]):
         raise SnapshotError("snapshot contract error: capabilities must be strings")

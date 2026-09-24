@@ -18,9 +18,11 @@
         "control_count": {"type": "integer", "minimum": 0}
       }
     },
-    "runtime": {"const": "claude-code"},
+    "runtime": {"enum": ["claude-code", "codex"]},
     "subject": {"type": "string"},
     "posture": {"enum": ["PASS", "WARN", "FAIL"]},
+    "security_posture": {"enum": ["PASS", "WARN", "FAIL"]},
+    "organisation_policy": {"$ref": "#/$defs/organisation_policy"},
     "counts": {"$ref": "#/$defs/counts"},
     "fields_not_evaluated": {"type": "integer", "minimum": 0},
     "controls_evaluated": {"type": "integer", "minimum": 0},
@@ -92,6 +94,50 @@
         "path": {"type": "string"},
         "source": {"type": "string"},
         "line": {"type": ["integer", "null"], "minimum": 1}
+      }
+    },
+    "organisation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "policy_id", "verdict", "requirements"],
+      "properties": {
+        "schema_version": {"const": "1"},
+        "policy_id": {"type": "string"},
+        "policy_ids": {
+          "type": "array",
+          "items": {"type": "string"},
+          "uniqueItems": true
+        },
+        "verdict": {"enum": ["PASS", "FAIL", "PERMITTED_RISK"]},
+        "requirements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["control_id", "expectation", "status", "baseline_finding", "parameters", "observed"],
+            "properties": {
+              "control_id": {"type": "string"},
+              "policy_id": {"type": "string"},
+              "domain": {
+                "enum": [
+                  "baseline",
+                  "approvals",
+                  "shell",
+                  "filesystem",
+                  "sandbox",
+                  "network",
+                  "hooks",
+                  "mcp"
+                ]
+              },
+              "expectation": {"enum": ["pass", "allow"]},
+              "status": {"enum": ["PASS", "FAIL", "PERMITTED_RISK"]},
+              "baseline_finding": {"type": "boolean"},
+              "parameters": {"type": "object"},
+              "observed": {"type": "object"}
+            }
+          }
+        }
       }
     },
     "resolution": {

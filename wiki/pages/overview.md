@@ -3,22 +3,53 @@
 ## Purpose
 
 Kaapi is a deterministic, local-first analyzer of configured security posture
-for observed Claude Code settings. It reports configuration potential, not
-runtime behavior.
+for observed Claude Code and Codex settings. It reports configuration
+potential, not runtime behavior.
 
-## P0 guarantees
+Kaapi remains an independent reusable project. Charlie is a potential consumer
+of Kaapi's configured-authority analysis, not a rename or replacement for
+Kaapi. The current primitive is deterministic static analysis producing
+normalized capabilities, baseline findings, and source evidence/provenance.
 
-- Claude Code is the only supported runtime in P0.
-- Analysis is offline, model-free, API-free, and read-only for inspected files.
+For Charlie, keep these concepts distinct:
+
+- `CONFIGURED`: authority inferred from configuration;
+- `EXPECTED`: authority intended or permitted by policy;
+- `OBSERVED`: runtime behavior actually seen.
+
+Kaapi currently supports CONFIGURED strongly and provides foundations for
+EXPECTED through organisational policies. Its `observed` wording refers to
+observed configuration sources, not runtime agent actions. Runtime telemetry is
+not currently implemented.
+
+## Current guarantees
+
+- Claude Code retains its frozen P0 behavior and baseline 0.3.1.
+- P1 adds a thin Codex TOML adapter with a runtime-specific baseline 0.4.0.
+- Organisational policies are closed data evaluated independently of baseline
+  posture.
+- Analysis is offline, model-free, does not call hosted APIs, and is read-only
+  for inspected files.
+- `kaapi.analyze_text(...)` provides an in-process Python API; Kaapi does not
+  ship an HTTP service or hosted endpoint.
 - Sensitive hook and MCP values are redacted from output and snapshots.
 - Findings, baseline snapshots, and CLI output are deterministic.
 - Baseline and rule provenance identify which versioned controls were applied.
 
-## Current boundary
+## P1 boundary
 
-Codex, organisational policy overlays, Cursor, Gemini, GitHub Copilot, blast
-radius, OWASP mappings, SARIF, and `explain` are outside P0. The additional
-Claude Settings Test Suite is a separate, non-gating adversarial benchmark.
+Cursor, Gemini, GitHub Copilot, blast radius, Arcanum/OWASP mappings, SARIF,
+and `explain` remain unavailable in `v1.1.0`. P2 is the planned Evaluation
+Integration & API phase; the earlier feature backlog has moved to P3. Neither
+planned phase is implemented. The additional Claude Settings Test Suite is a
+separate, non-gating adversarial benchmark.
+
+The Codex adapter intentionally does not infer project trust, CLI overrides,
+managed requirements, permission profiles, hooks, apps, plugins, skills, or
+runtime behavior. Unsupported security-relevant surfaces prevent a clean PASS.
+`allow_login_shell` is parsed and validated but does not currently materially
+affect resolution or findings. Codex coverage is tested but less extensively
+than Claude coverage.
 
 ## Sources
 

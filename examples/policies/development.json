@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "id": "development",
+  "requirements": [
+    {
+      "control_id": "AGENT-MCP-001",
+      "expectation": "pass",
+      "parameters": {
+        "max_configured_servers": 1
+      }
+    },
+    {
+      "control_id": "AGENT-SBOX-002",
+      "expectation": "allow"
+    }
+  ]
+}

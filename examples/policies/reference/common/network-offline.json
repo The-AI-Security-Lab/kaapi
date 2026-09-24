@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "id": "reference.network-offline",
+  "domain": "network",
+  "runtimes": ["claude-code", "codex"],
+  "requirements": [
+    {
+      "control_id": "AGENT-NET-001",
+      "expectation": "pass",
+      "parameters": {
+        "allow_outbound_potential": false,
+        "allow_local_binding": false,
+        "allow_all_unix_sockets": false,
+        "max_unix_socket_count": 0
+      }
+    }
+  ]
+}

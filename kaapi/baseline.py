@@ -10,7 +10,10 @@ from .model import Evidence, Resolution
 from .parser import MergedSettings
 
 
-BASELINE_RESOURCE = "baseline-0.3.1.json"
+BASELINE_RESOURCES = {
+    "claude-code": "baseline-0.3.1.json",
+    "codex": "baseline-codex-0.4.0.json",
+}
 LAYER_ORDER = {"approvals": 0, "permissions": 1, "sandbox": 2, "network": 3, "hooks": 4, "mcp": 5}
 SEVERITY_ORDER = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 UNKNOWN_IDS = {
@@ -23,8 +26,12 @@ UNKNOWN_IDS = {
 }
 
 
-def load_baseline() -> dict[str, Any]:
-    resource = files("kaapi").joinpath("data", BASELINE_RESOURCE)
+def load_baseline(runtime: str = "claude-code") -> dict[str, Any]:
+    try:
+        resource_name = BASELINE_RESOURCES[runtime]
+    except KeyError:
+        raise RuntimeError(f"unsupported baseline runtime: {runtime}") from None
+    resource = files("kaapi").joinpath("data", resource_name)
     baseline = json.loads(resource.read_text(encoding="utf-8"))
     required = {
         "id", "title", "layer", "rationale", "severity", "platform_applicability",
@@ -46,8 +53,10 @@ def load_baseline() -> dict[str, Any]:
     return baseline
 
 
-def control_map(baseline: dict[str, Any] | None = None) -> dict[str, dict[str, Any]]:
-    baseline = baseline or load_baseline()
+def control_map(
+    baseline: dict[str, Any] | None = None, runtime: str = "claude-code"
+) -> dict[str, dict[str, Any]]:
+    baseline = baseline or load_baseline(runtime)
     return {control["id"]: control for control in baseline["controls"]}
 
 
@@ -83,7 +92,182 @@ def _finding(control: dict[str, Any], observed: str, inference: str, why: str, c
     }
 
 
+def _evaluate_codex(
+    merged: MergedSettings,
+    resolution: Resolution,
+    selected_ids: set[str] | None,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    baseline = load_baseline("codex")
+    controls = control_map(baseline)
+    selected = selected_ids if selected_ids is not None else set(controls)
+    findings: list[dict[str, Any]] = []
+
+    def add(
+        control_id: str,
+        observed: str,
+        inference: str,
+        why: str,
+        confidence: str,
+        evidence: list[Evidence],
+    ) -> None:
+        if control_id in selected and control_id in controls:
+            findings.append(
+                _finding(
+                    controls[control_id],
+                    observed,
+                    inference,
+                    why,
+                    confidence,
+                    evidence,
+                )
+            )
+
+    if resolution.bypasses:
+        add(
+            "AGENT-APRV-001",
+            "danger-full-access and approval_policy never are both observed.",
+            "The configured Codex session has neither its OS sandbox nor an approval prompt boundary.",
+            "Critical because commands can receive broad unattended host capability.",
+            "high",
+            [
+                Evidence(
+                    item["source"],
+                    item["line"],
+                    item["path"],
+                    f"observed bypass mechanism: {item['mechanism']}",
+                )
+                for item in resolution.bypasses
+            ],
+        )
+    if resolution.facts["approvals_reviewer"] == "auto_review":
+        add(
+            "AGENT-APRV-002",
+            "approvals_reviewer is auto_review.",
+            "Eligible approval requests can be decided by an automatic model reviewer; the sandbox boundary is unchanged.",
+            "High because a human is not required for eligible approval decisions.",
+            "high",
+            _fallback_evidence(
+                merged,
+                "$.approvals_reviewer",
+                "automatic approval reviewer configured",
+            ),
+        )
+    if resolution.facts["tool_states"]["Bash"] == "unprompted":
+        add(
+            "AGENT-PERM-001",
+            "Shell execution resolves as unprompted within the observed sandbox scope.",
+            "Commands can run without a per-command human prompt; this does not prove execution.",
+            "High because shell access reaches broad configured workspace or host capability.",
+            "high",
+            _fallback_evidence(
+                merged, "$.sandbox_mode", "sandbox mode permits unprompted commands"
+            ),
+        )
+    if resolution.facts["tool_states"]["Write"] == "unprompted":
+        add(
+            "AGENT-PERM-002",
+            "File mutation resolves as unprompted within the observed sandbox scope.",
+            "Codex can modify files inside the configured write boundary without a per-file prompt.",
+            "High because unprompted mutation can alter source or configuration.",
+            "high",
+            _fallback_evidence(
+                merged, "$.sandbox_mode", "sandbox mode permits unprompted writes"
+            ),
+        )
+    if (
+        resolution.facts["sandbox_observed"]
+        and not resolution.sandbox["enabled"]
+    ):
+        add(
+            "AGENT-SBOX-001",
+            "sandbox_mode is danger-full-access.",
+            "The Codex OS-enforced filesystem and network boundary is disabled for commands.",
+            "High because command execution lacks the configured Codex containment boundary.",
+            "high",
+            _fallback_evidence(
+                merged, "$.sandbox_mode", "danger-full-access is configured"
+            ),
+        )
+    if resolution.sandbox["unsandboxed_retry_allowed"]:
+        add(
+            "AGENT-SBOX-002",
+            "The observed approval policy permits sandbox escalation requests.",
+            "A command can request approval to execute outside the configured sandbox; no approval or execution is claimed.",
+            "High because the configured sandbox boundary can be expanded by an approval decision.",
+            "medium",
+            _fallback_evidence(
+                merged,
+                "$.approval_policy",
+                "sandbox escalation approval can be requested",
+            ),
+        )
+    if (
+        resolution.network["outbound_configured_potential"]
+        and not resolution.network["strict_destination_boundary"]
+    ):
+        add(
+            "AGENT-NET-001",
+            "Command network access or live web search is configured without a strict destination boundary.",
+            "The observed configuration can reach destinations beyond a fixed allowlist; no connection is claimed.",
+            "High because unbounded configured destinations increase data-exposure potential.",
+            "medium",
+            _fallback_evidence(
+                merged,
+                "$.sandbox_workspace_write.network_access",
+                "outbound capability lacks a strict destination boundary",
+            ),
+        )
+    if resolution.mcp["configured_server_count"]:
+        add(
+            "AGENT-MCP-001",
+            f"{resolution.mcp['configured_server_count']} enabled MCP server definition(s) are observed.",
+            "The servers could add tool surfaces if they later connect; connection and execution are not observed.",
+            "Medium because configuration expands potential integration surface but does not prove use.",
+            "high",
+            _fallback_evidence(
+                merged,
+                "$.mcp_servers",
+                "MCP server definitions present; sensitive values are omitted",
+            ),
+        )
+    for layer, control_id in UNKNOWN_IDS.items():
+        items = [
+            item for item in resolution.unknown_fields if item.layer == layer
+        ]
+        if items:
+            add(
+                control_id,
+                f"{len(items)} unknown {layer} security field(s) are present.",
+                "Kaapi cannot evaluate their effect, so the configuration cannot receive a clean PASS.",
+                "Medium because the effect is unknown rather than proven high capability.",
+                "high",
+                [
+                    Evidence(
+                        item.source,
+                        item.line,
+                        item.path,
+                        "unknown security field is not evaluated",
+                    )
+                    for item in items
+                ],
+            )
+    findings.sort(
+        key=lambda finding: (
+            LAYER_ORDER[finding["layer"]],
+            finding["id"],
+            [
+                (item["source"], item["line"] or 0, item["path"])
+                for item in finding["evidence"]
+            ],
+        )
+    )
+    failed = {finding["id"] for finding in findings}
+    return findings, sorted(selected - failed)
+
+
 def evaluate(merged: MergedSettings, resolution: Resolution, selected_ids: set[str] | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+    if resolution.facts.get("runtime") == "codex":
+        return _evaluate_codex(merged, resolution, selected_ids)
     baseline = load_baseline()
     controls = control_map(baseline)
     selected = selected_ids if selected_ids is not None else set(controls)

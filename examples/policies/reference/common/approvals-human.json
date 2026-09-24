@@ -1,0 +1,25 @@
+{
+  "schema_version": "1",
+  "id": "reference.approvals-human",
+  "domain": "approvals",
+  "runtimes": ["claude-code", "codex"],
+  "requirements": [
+    {
+      "control_id": "AGENT-APRV-001",
+      "expectation": "pass",
+      "parameters": {
+        "allowed_modes": [
+          "acceptEdits",
+          "default",
+          "on-request",
+          "plan",
+          "untrusted"
+        ]
+      }
+    },
+    {
+      "control_id": "AGENT-APRV-002",
+      "expectation": "pass"
+    }
+  ]
+}

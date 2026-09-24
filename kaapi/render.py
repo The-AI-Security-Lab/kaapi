@@ -21,7 +21,7 @@ def colorize_pretty(value: str) -> str:
         "\x1b[36m", "\x1b[31m", "\x1b[33m", "\x1b[32m", "\x1b[34m", "\x1b[2m", "\x1b[0m"
     )
     result: list[str] = []
-    headings = {"INSPECTION", "POSTURE", "RESOLVED AGENT CAPABILITY", "FINDINGS", "RESULT"}
+    headings = {"INSPECTION", "POSTURE", "ORGANISATION POLICY", "RESOLVED AGENT CAPABILITY", "FINDINGS", "RESULT"}
     for line in value.splitlines():
         if line in headings:
             line = f"{cyan}{line}{reset}"
@@ -55,9 +55,15 @@ def _wrapped(label: str, value: str, subsequent: str = "  ") -> list[str]:
 
 def quiet_check(document: dict[str, Any], exit_code: int) -> str:
     counts = document["counts"]
+    policy = (
+        f" policy={document['organisation_policy']['verdict']}"
+        if "organisation_policy" in document
+        else ""
+    )
     return (
         f"{document['posture']} critical={counts['critical']} high={counts['high']} "
-        f"medium={counts['medium']} low={counts['low']} info={counts['info']} exit={exit_code}\n"
+        f"medium={counts['medium']} low={counts['low']} info={counts['info']}"
+        f"{policy} exit={exit_code}\n"
     )
 
 
@@ -101,6 +107,30 @@ def pretty_check(document: dict[str, Any], resolution: Any, inspected: list[str]
         f"Not evaluated: {document['fields_not_evaluated']}",
         f"Controls evaluated: {document['controls_evaluated']}",
         f"Passed controls: {len(document['passed_controls'])}",
+    ])
+    if "organisation_policy" in document:
+        policy = document["organisation_policy"]
+        lines.extend([
+            "",
+            SEPARATOR,
+            "ORGANISATION POLICY",
+            SEPARATOR,
+            f"Policy: {policy['policy_id']}",
+            f"Verdict: {policy['verdict']}",
+        ])
+        if "policy_ids" in policy:
+            lines.append("Policies: " + ", ".join(policy["policy_ids"]))
+        for requirement in policy["requirements"]:
+            prefix = (
+                f"{requirement['policy_id']}/"
+                if "policy_id" in requirement
+                else ""
+            )
+            lines.append(
+                f"{requirement['status']}  {prefix}{requirement['control_id']}  "
+                f"expectation={requirement['expectation']}"
+            )
+    lines.extend([
         "",
         SEPARATOR,
         "RESOLVED AGENT CAPABILITY",

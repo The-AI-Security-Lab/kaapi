@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaapi.local/schemas/policy.schema.json",
+  "title": "Kaapi organisational policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "id", "requirements"],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "domain": {
+      "enum": [
+        "baseline",
+        "approvals",
+        "shell",
+        "filesystem",
+        "sandbox",
+        "network",
+        "hooks",
+        "mcp"
+      ]
+    },
+    "runtimes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["claude-code", "codex"]}
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["control_id", "expectation"],
+        "properties": {
+          "control_id": {"type": "string"},
+          "expectation": {"enum": ["pass", "allow"]},
+          "parameters": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "max_configured_servers": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "allowed_server_names": {
+                "$ref": "#/$defs/string_list"
+              },
+              "required_server_names": {
+                "$ref": "#/$defs/string_list"
+              },
+              "max_auto_approved_servers": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "require_managed_only": {"type": "boolean"},
+              "allowed_modes": {
+                "$ref": "#/$defs/string_list"
+              },
+              "allowed_bash_rule_patterns": {
+                "$ref": "#/$defs/string_list"
+              },
+              "required_bash_rule_patterns": {
+                "$ref": "#/$defs/string_list"
+              },
+              "max_bash_allow_rules": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "require_default_deny": {"type": "boolean"},
+              "max_additional_directories": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "max_writable_paths": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "allowed_write_patterns": {
+                "$ref": "#/$defs/string_list"
+              },
+              "required_denied_read_patterns": {
+                "$ref": "#/$defs/string_list"
+              },
+              "required_denied_write_patterns": {
+                "$ref": "#/$defs/string_list"
+              },
+              "require_managed_read_paths_only": {"type": "boolean"},
+              "require_enabled": {"type": "boolean"},
+              "allowed_sandbox_modes": {
+                "$ref": "#/$defs/string_list"
+              },
+              "max_excluded_commands": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "require_strict_destination_boundary": {"type": "boolean"},
+              "allow_outbound_potential": {"type": "boolean"},
+              "allowed_domains": {
+                "$ref": "#/$defs/string_list"
+              },
+              "required_denied_domains": {
+                "$ref": "#/$defs/string_list"
+              },
+              "max_allowed_domains": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "allow_local_binding": {"type": "boolean"},
+              "allow_all_unix_sockets": {"type": "boolean"},
+              "max_unix_socket_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "max_command_hooks": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "allowed_hook_events": {
+                "$ref": "#/$defs/string_list"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "string_list": {
+      "type": "array",
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    }
+  }
+}

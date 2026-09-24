@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "id": "reference.claude-no-command-hooks",
+  "domain": "hooks",
+  "runtimes": ["claude-code"],
+  "requirements": [
+    {
+      "control_id": "AGENT-HOOK-001",
+      "expectation": "pass",
+      "parameters": {
+        "max_command_hooks": 0,
+        "allowed_hook_events": []
+      }
+    }
+  ]
+}

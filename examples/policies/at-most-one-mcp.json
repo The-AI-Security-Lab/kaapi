@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "id": "at-most-one-mcp",
+  "requirements": [
+    {
+      "control_id": "AGENT-MCP-001",
+      "expectation": "pass",
+      "parameters": {
+        "max_configured_servers": 1
+      }
+    }
+  ]
+}

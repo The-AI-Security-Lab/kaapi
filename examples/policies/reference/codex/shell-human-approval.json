@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "id": "reference.codex-shell-human-approval",
+  "domain": "shell",
+  "runtimes": ["codex"],
+  "requirements": [
+    {
+      "control_id": "AGENT-PERM-001",
+      "expectation": "pass"
+    }
+  ]
+}

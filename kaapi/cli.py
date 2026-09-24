@@ -1,4 +1,4 @@
-"""Kaapi P0 command-line interface."""
+"""Kaapi deterministic coding-agent command-line interface."""
 
 from __future__ import annotations
 
@@ -11,9 +11,15 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from . import __version__
-from .analyze import analyze, load_observed
+from .analyze import analyze, load_observed, select_runtime
 from .baseline import SEVERITY_ORDER, control_map, load_baseline
 from .model import ConfigError
+from .policy import (
+    PolicyError,
+    evaluate_policies,
+    load_policies,
+    validation_bundle_result,
+)
 from .render import colorize_pretty, json_text, pretty_check, quiet_check
 from .snapshot import SnapshotError, compare, load_snapshot, make_snapshot
 
@@ -34,7 +40,7 @@ def _version_text() -> str:
 def _parser() -> KaapiArgumentParser:
     parser = KaapiArgumentParser(
         prog="kaapi",
-        description="Deterministic local-first Claude Code security posture analysis (P0).",
+        description="Deterministic local-first coding-agent security posture analysis.",
         epilog="Example: kaapi check fixtures/loose/settings.json",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -50,8 +56,8 @@ def _parser() -> KaapiArgumentParser:
     doctor.add_argument("--env-root", metavar="DIR", help="remap discovery to a staged environment root")
     doctor.add_argument("--invocation", metavar="STRING", help="observe supported invocation-level bypass flags")
 
-    check = sub.add_parser("check", help="analyse Claude Code settings", description="Analyse observed Claude Code configuration.", epilog="Example: kaapi check fixtures/hardened/settings.json --format json")
-    check.add_argument("subject", nargs="?", help="claude, claude-code, or a settings JSON path")
+    check = sub.add_parser("check", help="analyse coding-agent settings", description="Analyse observed Claude Code or Codex configuration.", epilog="Example: kaapi check fixtures/hardened/settings.json --format json")
+    check.add_argument("subject", nargs="?", help="claude, claude-code, codex, or an explicit JSON/TOML path")
     check.add_argument("--path", metavar="FILE", help="explicit settings path instead of the positional subject")
     _runtime(check)
     _format(check)
@@ -64,9 +70,11 @@ def _parser() -> KaapiArgumentParser:
     check.add_argument("--fail-on", choices=["none", *SEVERITY_ORDER], default="high", help="minimum severity that exits 1")
     check.add_argument("--only", action="append", metavar="IDS", help="evaluate comma-separated control IDs; repeatable")
     check.add_argument("--ignore", action="append", metavar="IDS", help="ignore comma-separated control IDs; repeatable")
+    check.add_argument("--policy", action="append", default=[], metavar="FILE", help="evaluate a policy alongside the baseline; repeatable")
+    check.add_argument("--policy-dir", action="append", default=[], metavar="DIR", help="evaluate every JSON policy in a directory; repeatable")
 
     baseline = sub.add_parser("baseline", help="write a secret-safe capability snapshot", description="Create a versioned, secret-safe configured-capability snapshot.", epilog="Example: kaapi baseline settings.json -o before.json")
-    baseline.add_argument("settings_path", nargs="?", help="Claude Code settings JSON path")
+    baseline.add_argument("settings_path", nargs="?", help="Claude JSON or Codex TOML settings path")
     baseline.add_argument("--path", metavar="FILE", help="explicit settings path alternative")
     _runtime(baseline)
     baseline.add_argument("--format", choices=["json"], default="json", help="snapshot output format (JSON)")
@@ -75,7 +83,7 @@ def _parser() -> KaapiArgumentParser:
     baseline.add_argument("--no-color", action="store_true", help="disable terminal colour (snapshots are always plain)")
 
     verify = sub.add_parser("verify", help="compare settings with a snapshot", description="Compare resolved/configured capability with a compatible snapshot.", epilog="Example: kaapi verify settings.json --baseline before.json --expect-reduction")
-    verify.add_argument("settings_path", nargs="?", help="current Claude Code settings JSON path")
+    verify.add_argument("settings_path", nargs="?", help="current Claude JSON or Codex TOML settings path")
     verify.add_argument("--path", metavar="FILE", help="explicit settings path alternative")
     verify.add_argument("--baseline", required=True, metavar="SNAPSHOT", help="baseline snapshot JSON path")
     verify.add_argument("--expect-reduction", action="store_true", help="exit 1 unless current capability is a strict subset")
@@ -85,8 +93,9 @@ def _parser() -> KaapiArgumentParser:
     _verbosity(verify)
     verify.add_argument("--no-color", action="store_true", help="disable terminal colour")
 
-    rules = sub.add_parser("rules", help="list or inspect shipped controls", description="Show declarative P0 baseline controls and provenance.", epilog="Example: kaapi rules AGENT-APRV-001")
+    rules = sub.add_parser("rules", help="list or inspect shipped controls", description="Show declarative runtime baseline controls and provenance.", epilog="Example: kaapi rules AGENT-APRV-001")
     rules.add_argument("rule_id", nargs="?", help="specific control ID")
+    rules.add_argument("--runtime", choices=["claude-code", "codex"], default="claude-code", help="baseline runtime to inspect")
     _format(rules)
     _output(rules)
     rules.add_argument("--no-color", action="store_true", help="disable terminal colour")
@@ -95,11 +104,31 @@ def _parser() -> KaapiArgumentParser:
     _format(version)
     _output(version)
     version.add_argument("--no-color", action="store_true", help="disable terminal colour")
+
+    policy = sub.add_parser(
+        "policy",
+        help="validate organisational policy files",
+        description="Validate deterministic closed-data organisational policies.",
+    )
+    policy_subcommands = policy.add_subparsers(
+        dest="policy_command", title="policy commands"
+    )
+    validate = policy_subcommands.add_parser(
+        "validate",
+        help="validate policy files or directories",
+        description="Validate one or more policies without detecting or analysing an agent.",
+        epilog="Example: kaapi policy validate examples/policies/strict.json",
+    )
+    validate.add_argument("policy_path", nargs="*", metavar="FILE", help="policy JSON file; multiple files form a bundle")
+    validate.add_argument("--policy-dir", action="append", default=[], metavar="DIR", help="validate every JSON policy in a directory; repeatable")
+    _format(validate)
+    _output(validate)
+    validate.add_argument("--no-color", action="store_true", help="disable terminal colour")
     return parser
 
 
 def _runtime(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--runtime", choices=["claude-code", "codex", "auto"], default="auto", help="analysis runtime; codex is reserved in P0")
+    parser.add_argument("--runtime", choices=["claude-code", "codex", "auto"], default="auto", help="analysis runtime; auto selects from the subject or file extension")
 
 
 def _format(parser: argparse.ArgumentParser) -> None:
@@ -127,8 +156,7 @@ def _csv_ids(values: list[str] | None) -> set[str]:
 
 
 def _validate_runtime(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
-    if getattr(args, "runtime", "auto") == "codex":
-        parser.error("runtime 'codex' is reserved and unavailable in P0")
+    del args, parser
 
 
 def _settings_arg(args: argparse.Namespace, positional_name: str, parser: argparse.ArgumentParser, required: bool = False) -> str | None:
@@ -137,8 +165,8 @@ def _settings_arg(args: argparse.Namespace, positional_name: str, parser: argpar
     if positional and option:
         parser.error("positional settings input and --path cannot be used together")
     value = option or positional
-    if value in {"codex", "cursor", "gemini", "github-copilot"}:
-        parser.error(f"analysis subject '{value}' is unavailable in P0")
+    if value in {"cursor", "gemini", "github-copilot"}:
+        parser.error(f"analysis subject '{value}' is unavailable")
     if required and not value:
         parser.error("a settings path is required")
     return value
@@ -195,7 +223,8 @@ def _use_color(args: argparse.Namespace) -> bool:
 def _run_check(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     _validate_runtime(args, parser)
     subject = _settings_arg(args, "subject", parser) or "claude-code"
-    known = set(control_map())
+    selected_runtime = select_runtime(subject, args.runtime)
+    known = set(control_map(runtime=selected_runtime))
     only, ignore = _csv_ids(args.only), _csv_ids(args.ignore)
     unknown_ids = (only | ignore) - known
     if unknown_ids:
@@ -207,9 +236,29 @@ def _run_check(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int
         only=only or None,
         ignore=ignore,
         severity=args.severity,
+        runtime=args.runtime,
     )
-    _refuse_output_collision(args.output, inspected, parser)
+    policies = (
+        load_policies(args.policy, args.policy_dir)
+        if args.policy or args.policy_dir
+        else ()
+    )
+    _refuse_output_collision(
+        args.output,
+        [*inspected, *(policy.source for policy in policies)],
+        parser,
+    )
     exit_code = _gate_from_counts(document["counts"], args.fail_on)
+    if policies:
+        policy_result = evaluate_policies(
+            policies,
+            resolution,
+            set(resolution.facts["baseline_failed_control_ids"]),
+        )
+        document["security_posture"] = document["posture"]
+        document["organisation_policy"] = policy_result
+        if policy_result["verdict"] == "FAIL":
+            exit_code = 1
     if args.format == "json":
         value = json_text(document)
     elif args.quiet:
@@ -226,9 +275,11 @@ def _run_baseline(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
     _validate_runtime(args, parser)
     settings = _settings_arg(args, "settings_path", parser, required=True)
     _refuse_output_collision(args.output, [settings], parser)
-    document, _, _ = analyze(settings)
-    merged, _, _ = load_observed(settings)
-    value = json_text(make_snapshot(document, merged.data))
+    document, _, _ = analyze(settings, runtime=args.runtime)
+    merged, _, _ = load_observed(settings, runtime=args.runtime)
+    value = json_text(
+        make_snapshot(document, merged.data, document["runtime"])
+    )
     _emit(value, args.output)
     return 0
 
@@ -251,14 +302,15 @@ def _verify_pretty(delta: dict[str, Any], exit_code: int) -> str:
 def _run_verify(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     _validate_runtime(args, parser)
     settings = _settings_arg(args, "settings_path", parser, required=True)
-    snapshot = load_snapshot(args.baseline)
-    document, _, inspected = analyze(settings)
+    selected_runtime = select_runtime(settings, args.runtime)
+    snapshot = load_snapshot(args.baseline, selected_runtime)
+    document, _, inspected = analyze(settings, runtime=args.runtime)
     _refuse_output_collision(args.output, [*inspected, args.baseline], parser)
     delta = compare(snapshot, document["resolved_capability"]["capabilities"])
     exit_code = 1 if args.expect_reduction and not delta["strict_reduction"] else 0
     report = {
         "schema_version": "1",
-        "runtime": "claude-code",
+        "runtime": document["runtime"],
         "subject": settings,
         "strict_reduction": delta["strict_reduction"],
         "removed_capabilities": delta["removed_capabilities"],
@@ -297,16 +349,37 @@ def _doctor_mcp_count(env_root: str | None) -> tuple[int, str | None]:
 
 def _run_doctor(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     _validate_runtime(args, parser)
-    document, _, inspected = analyze("claude-code", env_root=args.env_root, invocation=args.invocation)
+    subject = "codex" if args.runtime == "codex" else "claude-code"
+    document, _, inspected = analyze(
+        subject,
+        env_root=args.env_root,
+        invocation=args.invocation,
+        runtime=args.runtime,
+    )
     root = Path(args.env_root) if args.env_root else None
     codex_path = (root / "home/.codex/config.toml") if root else (Path.home() / ".codex/config.toml")
+    if document["runtime"] == "codex":
+        claude_candidates = (
+            (
+                root / "home/.claude/settings.json",
+                root / "project/.claude/settings.json",
+                root / "project/.claude/settings.local.json",
+            )
+            if root
+            else (Path.home() / ".claude/settings.json",)
+        )
+        claude_detected = any(path.is_file() for path in claude_candidates)
+        codex_detected = bool(inspected)
+    else:
+        claude_detected = bool(inspected)
+        codex_detected = codex_path.is_file()
     mcp_count, mcp_path = _doctor_mcp_count(args.env_root)
     _refuse_output_collision(args.output, [*inspected, mcp_path, str(codex_path)], parser)
     report = {
         "schema_version": "1",
-        "runtime": "claude-code",
-        "claude_code_detected": bool(inspected),
-        "codex_detected": codex_path.is_file(),
+        "runtime": document["runtime"],
+        "claude_code_detected": claude_detected,
+        "codex_detected": codex_detected,
         "observed_project_mcp_server_count": mcp_count,
         "posture": document["posture"],
         "counts": {key: document["counts"][key] for key in ("critical", "high", "medium")},
@@ -321,7 +394,14 @@ def _run_doctor(args: argparse.Namespace, parser: argparse.ArgumentParser) -> in
         lines = [
             "Kaapi doctor",
             f"Claude Code detected: {'yes' if report['claude_code_detected'] else 'no'}",
-            f"Codex detected: {'yes' if report['codex_detected'] else 'no'} (presence only; not analysed)",
+            (
+                f"Codex detected: {'yes' if report['codex_detected'] else 'no'}"
+                + (
+                    " (analysed)"
+                    if document["runtime"] == "codex"
+                    else " (presence only; not analysed)"
+                )
+            ),
             f"Observed project MCP servers: {mcp_count}",
             f"Posture: {report['posture']}",
             f"Critical: {report['counts']['critical']}",
@@ -340,7 +420,7 @@ def _run_doctor(args: argparse.Namespace, parser: argparse.ArgumentParser) -> in
 
 
 def _run_rules(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
-    baseline = load_baseline()
+    baseline = load_baseline(args.runtime)
     controls = baseline["controls"]
     if args.rule_id:
         matches = [control for control in controls if control["id"] == args.rule_id]
@@ -386,6 +466,35 @@ def _run_version(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_policy(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    if args.policy_command != "validate":
+        parser.error("a policy subcommand is required")
+    if not args.policy_path and not args.policy_dir:
+        parser.error("at least one policy file or --policy-dir is required")
+    policies = load_policies(args.policy_path, args.policy_dir)
+    _refuse_output_collision(
+        args.output, [policy.source for policy in policies], parser
+    )
+    result = validation_bundle_result(policies)
+    if args.format == "json":
+        value = json_text(result)
+    else:
+        policy_label = (
+            result["policy_id"]
+            if "policy_id" in result
+            else ", ".join(result["policy_ids"])
+        )
+        value = (
+            "Kaapi policy validate\n"
+            f"Policy: {policy_label}\n"
+            "Verdict: VALID\n"
+            f"Requirements: {result['requirement_count']}\n"
+            "Process exit code: 0\n"
+        )
+    _emit(value, args.output)
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _parser()
     args_list = list(argv) if argv is not None else None
@@ -409,6 +518,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _run_rules(args, parser)
         if args.command == "version":
             return _run_version(args)
+        if args.command == "policy":
+            return _run_policy(args, parser)
         parser.error("unsupported command")
     except ConfigError as exc:
         print(exc.safe_message(), file=sys.stderr)
@@ -416,6 +527,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     except SnapshotError as exc:
         print(str(exc), file=sys.stderr)
         return 2
+    except PolicyError as exc:
+        print(exc.safe_message(), file=sys.stderr)
+        return 3
     except KeyboardInterrupt:
         print("kaapi interrupted", file=sys.stderr)
         return 4

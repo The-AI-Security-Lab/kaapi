@@ -7,11 +7,14 @@ Start with the overview, then follow the architecture and testing pages.
 
 | Page | Summary |
 | --- | --- |
-| [Overview](pages/overview.md) | Product purpose, guarantees, and current P0 scope. |
+| [Overview](pages/overview.md) | Product purpose, guarantees, and current P1 scope. |
 | [Architecture](pages/architecture.md) | Deterministic analysis pipeline and module responsibilities. |
 | [P0 controls](pages/p0-controls.md) | Baseline controls, severity, provenance, and evaluation boundaries. |
+| [P1 Codex adapter](pages/p1-codex.md) | Supported Codex TOML surfaces, precedence, and conservative boundaries. |
+| [Organisational policies](pages/organisational-policies.md) | Closed policy schema, independent verdicts, and PERMITTED_RISK. |
 | [Testing and fixtures](pages/testing-and-fixtures.md) | Acceptance tests, fixtures, and validation commands. |
-| [Roadmap](pages/roadmap.md) | P1 and P2 direction without changing current P0 scope. |
+| [Roadmap](pages/roadmap.md) | Completed P0/P1 releases and planned P2/P3 boundaries. |
+| [LLM wiki pattern](pages/llm-wiki-pattern.md) | Project-specific application of the persistent wiki workflow. |
 
 ## Authority and source register
 
@@ -26,5 +29,5 @@ Start with the overview, then follow the architecture and testing pages.
 ## Maintenance entrypoints
 
 - [Maintenance log](log.md) — chronological ingest and update history.
-- [Claude Settings Test Suite](../Claude%20Settings%20Test%20Suite/README.md) —
-  separate, non-gating adversarial benchmark.
+- Claude Settings Test Suite — external, non-vendored, non-gating adversarial
+  benchmark recorded in the source register.

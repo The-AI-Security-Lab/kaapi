@@ -13,7 +13,16 @@ from typing import Any, Iterable
 from .model import ConfigError, SourceLayer, UnknownField
 
 
-PRECEDENCE = {"user": 0, "shared": 1, "local": 2, "supplied": 3, "explicit": 3, "managed": 4}
+PRECEDENCE = {
+    "system": -1,
+    "user": 0,
+    "shared": 1,
+    "project": 2,
+    "local": 2,
+    "supplied": 3,
+    "explicit": 3,
+    "managed": 4,
+}
 
 TOP_SUPPORTED = {
     "$schema",
@@ -280,28 +289,56 @@ def _source_kind_for_path(source: str) -> str:
     return "explicit"
 
 
+def _parse_settings_content(
+    content: str | bytes, source: str, kind: str
+) -> SourceLayer:
+    if not isinstance(content, (str, bytes)):
+        raise TypeError("content must be str or bytes")
+    if not isinstance(source, str) or not source:
+        raise ValueError("source must be a non-empty string")
+    if isinstance(content, bytes):
+        try:
+            text = content.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            line = content[:exc.start].count(b"\n") + 1
+            raise ConfigError(source, "invalid UTF-8", line) from None
+    else:
+        text = content
+    try:
+        data = json.loads(text, object_pairs_hook=_pairs_no_duplicates)
+    except json.JSONDecodeError as exc:
+        raise ConfigError(source, "invalid JSON", exc.lineno, exc.colno) from None
+    except ValueError:
+        raise ConfigError(source, "duplicate object key") from None
+    if not isinstance(data, dict):
+        raise ConfigError(source, "top level must be an object", 1, 1)
+    lines = _LocationWalker(text).walk()
+    unknown = _validate_and_classify(data, source, lines)
+    return SourceLayer(
+        kind=kind,
+        path=Path(source),
+        data=data,
+        lines=lines,
+        unknown_fields=unknown,
+    )
+
+
 def parse_settings(path: str | Path, kind: str = "explicit") -> SourceLayer:
     source_path = Path(path)
     try:
         raw = source_path.read_bytes()
     except OSError as exc:
         raise ConfigError(str(source_path), f"cannot read settings file ({exc.strerror or 'I/O error'})") from None
-    try:
-        text = raw.decode("utf-8", errors="strict")
-    except UnicodeDecodeError as exc:
-        line = raw[:exc.start].count(b"\n") + 1
-        raise ConfigError(str(source_path), "invalid UTF-8", line) from None
-    try:
-        data = json.loads(text, object_pairs_hook=_pairs_no_duplicates)
-    except json.JSONDecodeError as exc:
-        raise ConfigError(str(source_path), "invalid JSON", exc.lineno, exc.colno) from None
-    except ValueError:
-        raise ConfigError(str(source_path), "duplicate object key") from None
-    if not isinstance(data, dict):
-        raise ConfigError(str(source_path), "top level must be an object", 1, 1)
-    lines = _LocationWalker(text).walk()
-    unknown = _validate_and_classify(data, str(source_path), lines)
-    return SourceLayer(kind=kind, path=source_path, data=data, lines=lines, unknown_fields=unknown)
+    return _parse_settings_content(raw, str(source_path), kind)
+
+
+def parse_settings_text(
+    content: str | bytes,
+    source: str = "<memory:claude-code>",
+    kind: str = "explicit",
+) -> SourceLayer:
+    """Parse Claude settings supplied directly in memory."""
+    return _parse_settings_content(content, source, kind)
 
 
 def _pick_existing(candidates: Iterable[Path]) -> Path | None:

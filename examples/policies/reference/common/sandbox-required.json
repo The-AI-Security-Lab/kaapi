@@ -1,0 +1,24 @@
+{
+  "schema_version": "1",
+  "id": "reference.sandbox-required",
+  "domain": "sandbox",
+  "runtimes": ["claude-code", "codex"],
+  "requirements": [
+    {
+      "control_id": "AGENT-SBOX-001",
+      "expectation": "pass",
+      "parameters": {
+        "require_enabled": true,
+        "allowed_sandbox_modes": [
+          "enabled",
+          "read-only",
+          "workspace-write"
+        ]
+      }
+    },
+    {
+      "control_id": "AGENT-SBOX-002",
+      "expectation": "pass"
+    }
+  ]
+}

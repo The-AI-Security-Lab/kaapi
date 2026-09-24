@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "id": "claude-shell-guardrails",
+  "requirements": [
+    {
+      "control_id": "AGENT-PERM-001",
+      "expectation": "pass"
+    },
+    {
+      "control_id": "AGENT-SBOX-004",
+      "expectation": "pass",
+      "parameters": {
+        "max_excluded_commands": 0
+      }
+    }
+  ]
+}

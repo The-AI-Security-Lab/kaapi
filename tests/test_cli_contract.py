@@ -26,7 +26,7 @@ def test_version_and_rules(run_cli):
     rules = run_cli("rules")
     detail = run_cli("rules", "AGENT-APRV-001")
     assert version.returncode == global_version.returncode == rules.returncode == detail.returncode == 0
-    assert "kaapi 1.0.0" in version.stdout and "0.3.1 (17 controls)" in version.stdout
+    assert "kaapi 1.1.0" in version.stdout and "0.3.1 (17 controls)" in version.stdout
     assert len(rules.stdout.strip().splitlines()) == 17
     assert "https://code.claude.com/docs/en/permission-modes" in detail.stdout
     assert "accessed 2026-08-26" in detail.stdout
@@ -91,7 +91,7 @@ def test_output_cannot_overwrite_inspected_inputs(run_cli, tmp_path):
     assert settings.read_bytes() == original
 
 
-@pytest.mark.parametrize("args", [("check", "fixtures/hardened/settings.json", "--format", "sarif"), ("check", "fixtures/hardened/settings.json", "--runtime", "codex"), ("check", "codex"), ("check", "cursor"), ("explain",), ("policy",), ("check", "fixtures/hardened/settings.json", "--owasp")])
+@pytest.mark.parametrize("args", [("check", "fixtures/hardened/settings.json", "--format", "sarif"), ("check", "cursor"), ("explain",), ("policy",), ("check", "fixtures/hardened/settings.json", "--owasp")])
 def test_p1_p2_surfaces_are_usage_errors(run_cli, args):
     assert run_cli(*args).returncode == 2
 

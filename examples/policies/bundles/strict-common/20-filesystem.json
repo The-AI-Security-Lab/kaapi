@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "id": "strict.filesystem",
+  "domain": "filesystem",
+  "runtimes": ["claude-code", "codex"],
+  "requirements": [
+    {
+      "control_id": "AGENT-PERM-002",
+      "expectation": "pass",
+      "parameters": {
+        "max_additional_directories": 0,
+        "max_writable_paths": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "1",
+  "id": "strict.approvals",
+  "domain": "approvals",
+  "runtimes": ["claude-code", "codex"],
+  "requirements": [
+    {
+      "control_id": "AGENT-APRV-001",
+      "expectation": "pass"
+    },
+    {
+      "control_id": "AGENT-APRV-002",
+      "expectation": "pass"
+    }
+  ]
+}

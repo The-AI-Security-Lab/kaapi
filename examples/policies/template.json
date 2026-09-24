@@ -1,0 +1,21 @@
+{
+  "schema_version": "1",
+  "id": "my-organisation",
+  "requirements": [
+    {
+      "control_id": "AGENT-APRV-001",
+      "expectation": "pass"
+    },
+    {
+      "control_id": "AGENT-MCP-001",
+      "expectation": "pass",
+      "parameters": {
+        "max_configured_servers": 0
+      }
+    },
+    {
+      "control_id": "AGENT-SBOX-002",
+      "expectation": "pass"
+    }
+  ]
+}

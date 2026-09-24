@@ -1,0 +1,21 @@
+{
+  "schema_version": "1",
+  "id": "reference.claude-sensitive-files-denied",
+  "domain": "filesystem",
+  "runtimes": ["claude-code"],
+  "requirements": [
+    {
+      "control_id": "AGENT-PERM-002",
+      "expectation": "pass",
+      "parameters": {
+        "max_additional_directories": 0,
+        "max_writable_paths": 0,
+        "required_denied_read_patterns": [
+          "**/.env",
+          "**/.ssh/**"
+        ],
+        "require_managed_read_paths_only": true
+      }
+    }
+  ]
+}

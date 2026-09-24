@@ -1,0 +1,17 @@
+{
+  "schema_version": "1",
+  "id": "reference.mcp-github-only",
+  "domain": "mcp",
+  "runtimes": ["claude-code", "codex"],
+  "requirements": [
+    {
+      "control_id": "AGENT-MCP-001",
+      "expectation": "pass",
+      "parameters": {
+        "max_configured_servers": 1,
+        "allowed_server_names": ["github"],
+        "required_server_names": ["github"]
+      }
+    }
+  ]
+}

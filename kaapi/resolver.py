@@ -382,6 +382,7 @@ def resolve(merged: MergedSettings, invocation: str | None = None) -> Resolution
         capability_lines.insert(4, "[!] Sandboxed shell commands: unprompted; commands that cannot be sandboxed use the regular permission flow")
 
     facts = {
+        "runtime": "claude-code",
         "tool_states": states,
         "scoped_rule_counts": scoped,
         "rules": rules,
@@ -389,6 +390,29 @@ def resolve(merged: MergedSettings, invocation: str | None = None) -> Resolution
         "workspace_trust_observed": False,
         "invocation_bypass_locked": invocation_mechanism is not None and bypass_locked,
         "sandboxed_bash_unprompted": sandboxed_bash_unprompted,
+        "shell_rule_policy_supported": True,
+        "bash_allow_rule_patterns": sorted(
+            rule.specifier
+            for rule in rules
+            if rule.rule_class == "allow"
+            and rule.tool == "Bash"
+            and rule.specifier not in {None, "*"}
+        ),
+        "bash_broad_allow_count": sum(
+            rule.rule_class == "allow"
+            and rule.tool in {"Bash", "*"}
+            and rule.specifier in {None, "*"}
+            for rule in rules
+        ),
+        "mcp_server_names": list(mcp["server_names"]),
+        "mcp_managed_only": mcp["managed_only"],
+        "writable_path_patterns": list(filesystem.get("allowWrite", [])),
+        "denied_read_patterns": list(filesystem.get("denyRead", [])),
+        "denied_write_patterns": list(filesystem.get("denyWrite", [])),
+        "allowed_domains": list(allowed_domains),
+        "denied_domains": list(denied_domains),
+        "hook_events": sorted({item["event"] for item in hooks}),
+        "sandbox_mode": "enabled" if sandbox_enabled else "disabled",
     }
     return Resolution(
         capabilities=sorted(capabilities),
