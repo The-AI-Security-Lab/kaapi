@@ -8,7 +8,9 @@ static configuration potential, not runtime behavior.
 
 Kaapi `1.1.0` adds a thin Codex `config.toml` adapter, closed-data
 organisational policy overlays, and a public in-process Python analysis API.
-Planned P2 and P3 capabilities are not available in this release.
+The P2.1 workshop evaluation slice is implemented on the current development
+branch; the remaining P2 HTTP/API work and P3 backlog are not part of this
+release.
 
 ## P1 milestone
 
@@ -116,16 +118,29 @@ document = analyze_text(
 `config_content` may be UTF-8 `str` or `bytes`. Without `source`, evidence uses
 a deterministic synthetic identifier such as `<memory:claude-code>`; no
 temporary configuration file is written. Parsing and validation errors raise
-the existing `ConfigError`. The facade is a general Kaapi library capability,
-not a Charlie-specific API. The existing CLI, snapshots, verification, and
-closed organisational-policy workflows remain supported; the first facade
-version does not expand the policy API.
+the existing `ConfigError`. Pass one policy JSON document as `policy=` to
+evaluate the same closed organisational-policy overlay used by the CLI; policy
+content may be UTF-8 text, bytes, or a decoded mapping, and a non-empty
+sequence supports a deterministic policy bundle. Invalid policy input raises
+`PolicyError`. The facade is a general Kaapi library capability, not a
+Charlie-specific API. The existing CLI, snapshots, verification, and policy
+verdict semantics remain supported.
+
+For the workshop integration, run a checked-in golden case:
+
+```console
+uv run python -m evaluation.p2_1.harness evaluation/p2_1/golden/claude-insecure
+```
+
+The external-style harness owns grading and preserves Kaapi's policy result,
+findings, evidence, and static-analysis limitations. It reports `PASS`,
+`FAIL`, `INCONCLUSIVE`, or `NOT_TESTED`; it does not execute an agent.
 
 This is an in-process Python API, not an HTTP service. Kaapi does not ship
 FastAPI, a hosted endpoint, authentication, or a browser upload/paste flow. A
 remote or browser consumer needs its own thin backend adapter. The first
-`analyze_text` version also does not accept organisational-policy inputs; use
-the CLI policy workflow for policy evaluation.
+P2.1 slice intentionally leaves the HTTP API and hosted deployment for the
+remaining P2 work.
 
 ## Understand the result
 
@@ -610,10 +625,11 @@ Use `--format json` to consume `security_posture` and
 | --- | --- | --- |
 | P0 (`v1.0.0`) | Complete | Deterministic Claude Code configuration analysis and verification foundation |
 | P1 (`v1.1.0`) | Complete | Codex support, organisational policy-as-code, independent verdicts, and the in-process Python API |
-| P2 | Planned, not implemented | Evaluation Integration & API: public policy evaluation, a small deterministic HTTP API, and golden-evaluation integration |
+| P2.1 | Implemented on development branch | Public policy evaluation and four-case workshop golden harness |
+| P2 | In progress | Remaining versioned deterministic HTTP API and hosting-feasibility work |
 | P3 | Planned backlog, not implemented | Deferred adapters, mappings, SARIF, blast-radius modelling, and usability enhancements |
 
-P2 will reuse the existing deterministic engine and will not make hosted
+P2 reuses the existing deterministic engine and will not make hosted
 deployment, an LLM, or runtime execution a dependency of local Kaapi usage.
 P3 is a backlog rather than a commitment to implement every listed feature.
 The detailed approved roadmap is maintained in

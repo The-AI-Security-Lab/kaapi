@@ -11,12 +11,11 @@ from pathlib import Path
 from typing import Any, Sequence
 
 from . import __version__
-from .analyze import analyze, load_observed, select_runtime
+from .analyze import apply_policies, analyze, load_observed, select_runtime
 from .baseline import SEVERITY_ORDER, control_map, load_baseline
 from .model import ConfigError
 from .policy import (
     PolicyError,
-    evaluate_policies,
     load_policies,
     validation_bundle_result,
 )
@@ -250,13 +249,8 @@ def _run_check(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int
     )
     exit_code = _gate_from_counts(document["counts"], args.fail_on)
     if policies:
-        policy_result = evaluate_policies(
-            policies,
-            resolution,
-            set(resolution.facts["baseline_failed_control_ids"]),
-        )
-        document["security_posture"] = document["posture"]
-        document["organisation_policy"] = policy_result
+        apply_policies(document, resolution, policies)
+        policy_result = document["organisation_policy"]
         if policy_result["verdict"] == "FAIL":
             exit_code = 1
     if args.format == "json":

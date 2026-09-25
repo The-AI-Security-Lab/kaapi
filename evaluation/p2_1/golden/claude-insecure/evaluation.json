@@ -1,0 +1,29 @@
+{
+  "schema_version": "1",
+  "case_id": "claude-insecure",
+  "runtime": "claude-code",
+  "config": "settings.json",
+  "security_requirement": {
+    "control_id": "AGENT-SBOX-001",
+    "policy": {
+      "schema_version": "1",
+      "id": "claude-sandbox-required",
+      "runtimes": ["claude-code"],
+      "requirements": [
+        {
+          "control_id": "AGENT-SBOX-001",
+          "expectation": "pass",
+          "parameters": {"require_enabled": true}
+        }
+      ]
+    },
+    "required_evidence": ["organisation_policy", "policy_requirement", "requirement_observation"]
+  },
+  "expected": {
+    "security_posture": "FAIL",
+    "policy_verdict": "FAIL",
+    "policy_status": "FAIL",
+    "grade": "FAIL",
+    "observed": {"sandbox_enabled": false}
+  }
+}

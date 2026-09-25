@@ -905,3 +905,46 @@ only by a later entry that explicitly names the earlier decision.
   change the implemented P0/P1 requirements, DEC-027's P1 scope, or DEC-035
   and DEC-036's project and API boundaries.
 - Implementation status: P2 and P3 are not implemented in `v1.1.0`.
+
+## DEC-039 — P2.1 workshop integration boundary
+
+- Date: 2026-09-25
+- Context: The first P2 deliverable is the smallest reliable integration for
+  the AI Security Lab coding-agent security workshop. P1 already has a
+  deterministic in-memory configuration facade and a closed policy evaluator,
+  but the facade does not yet accept policy input and no golden harness exists
+  in the repository.
+- Decision: Extend `kaapi.analyze_text(...)` with an optional `policy=` input.
+  It accepts one strict policy JSON document as UTF-8 text, bytes, or a decoded
+  mapping; a non-empty sequence supports the existing deterministic policy
+  bundle semantics. Policy parsing uses the same validation implementation as
+  file-backed CLI policies, and the CLI and Python API use one shared policy
+  overlay helper. Existing callers that omit `policy` retain the exact P1
+  result shape and semantics.
+- Harness boundary: Add a small external-style example under
+  `evaluation/p2_1/` with four declarative golden cases. The harness invokes
+  the public Python API, preserves the returned policy requirement, finding
+  evidence, and static-analysis limitation, and owns only the workshop grade.
+  A policy requirement with status `PASS` can grade `PASS`; an evaluated
+  non-pass requirement grades `FAIL`; missing required evidence grades
+  `INCONCLUSIVE`; malformed/unavailable input or an unsupported runtime
+  requirement grades `NOT_TESTED`.
+- Rationale: This establishes the requested requirement → configuration →
+  Kaapi assessment → deterministic grading path without duplicating the
+  engine, changing baseline findings, adding runtime claims, or building a
+  generic evaluation platform. The HTTP API, Cloudflare deployment, and
+  broader P2 parity remain outside this slice.
+- Alternatives considered: Passing policy file paths to the Python API,
+  writing temporary policy files, duplicating policy evaluation in the
+  harness, or making the Kaapi engine own workshop grading; rejected because
+  they weaken the in-memory boundary, risk semantic drift, or collapse the
+  distinction between analysis and evaluation.
+- Relationship to earlier decisions: This implements the P2 scope recorded in
+  DEC-038 while preserving DEC-030, DEC-031, DEC-035, DEC-036, and the frozen
+  P0/P1 analysis and evidence boundaries. It does not implement HTTP or alter
+  `PERMITTED_RISK` semantics.
+- Affected files: `kaapi/analyze.py`, `kaapi/policy.py`, `kaapi/cli.py`,
+  `evaluation/p2_1/**`, `tests/test_p2_1.py`, README, roadmap, and wiki log.
+- Validation: The four golden cases, CLI/Python parity, deterministic repeat,
+  malformed input, unsupported requirements, missing evidence, and the full
+  P0/P1 regression suite.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,12 @@ from .parser import (
     merge_layers,
     parse_settings,
     parse_settings_text,
+)
+from .policy import (
+    Policy,
+    evaluate_policies,
+    load_policy_text,
+    load_policy_value,
 )
 from .resolver import resolve
 
@@ -162,6 +169,48 @@ def _build_analysis_document(
     return document, resolution
 
 
+def apply_policies(
+    document: dict[str, Any],
+    resolution: Any,
+    policies: tuple[Policy, ...],
+) -> dict[str, Any]:
+    """Add the independent policy assessment to an analysis document."""
+    if not policies:
+        return document
+    document["security_posture"] = document["posture"]
+    document["organisation_policy"] = evaluate_policies(
+        policies,
+        resolution,
+        set(resolution.facts["baseline_failed_control_ids"]),
+    )
+    return document
+
+
+def _load_policy_inputs(
+    policy: str | bytes | Mapping[str, Any] | Sequence[str | bytes | Mapping[str, Any]] | None,
+) -> tuple[Policy, ...]:
+    if policy is None:
+        return ()
+    if isinstance(policy, (str, bytes)):
+        return (load_policy_text(policy),)
+    if isinstance(policy, Mapping):
+        return (load_policy_value(dict(policy)),)
+    if isinstance(policy, Sequence):
+        policies: list[Policy] = []
+        for index, item in enumerate(policy):
+            source = f"<memory:policy:{index}>"
+            if isinstance(item, (str, bytes)):
+                policies.append(load_policy_text(item, source))
+            elif isinstance(item, Mapping):
+                policies.append(load_policy_value(dict(item), source))
+            else:
+                raise TypeError("each policy must be str, bytes, or a mapping")
+        if not policies:
+            raise ValueError("policy sequence must not be empty")
+        return tuple(policies)
+    raise TypeError("policy must be str, bytes, a mapping, or a non-empty sequence")
+
+
 def analyze(
     subject: str | Path | None,
     *,
@@ -193,13 +242,16 @@ def analyze_text(
     *,
     runtime: str,
     source: str | None = None,
+    policy: str | bytes | Mapping[str, Any] | Sequence[str | bytes | Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Analyze Claude JSON or Codex TOML supplied without filesystem persistence.
+    """Analyze configuration text and optionally evaluate closed policies.
 
     The returned value is the same versioned structured document produced by
     :func:`analyze`; ``source`` is a deterministic display identifier used for
-    evidence and defaults to a synthetic in-memory source. This first public
-    facade intentionally does not accept policy inputs.
+    evidence and defaults to a synthetic in-memory source. ``policy`` accepts
+    one policy JSON document or a non-empty sequence of policy JSON documents,
+    supplied as text, bytes, or decoded mappings. Policy evaluation is the
+    same independent overlay used by the CLI.
     """
     if runtime not in {"claude-code", "codex"}:
         raise ValueError("runtime must be 'claude-code' or 'codex'")
@@ -214,13 +266,13 @@ def analyze_text(
         if runtime == "codex"
         else merge_layers([layer])
     )
-    document, _ = _build_analysis_document(
+    document, resolution = _build_analysis_document(
         merged,
         source_label,
         [],
         runtime,
     )
-    return document
+    return apply_policies(document, resolution, _load_policy_inputs(policy))
 
 
 def gate_exit(findings: list[dict[str, Any]], fail_on: str) -> int:

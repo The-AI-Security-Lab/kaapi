@@ -157,25 +157,40 @@ def load_policy(path: str | Path) -> Policy:
             str(source_path),
             f"cannot read policy file ({exc.strerror or 'I/O error'})",
         ) from None
-    try:
-        text = raw.decode("utf-8", errors="strict")
-    except UnicodeDecodeError:
-        raise PolicyError(str(source_path), "invalid UTF-8") from None
+    return load_policy_text(raw, str(source_path))
+
+
+def load_policy_text(content: str | bytes, source: str = "<memory:policy>") -> Policy:
+    """Validate one policy supplied without filesystem persistence."""
+    if isinstance(content, bytes):
+        try:
+            text = content.decode("utf-8", errors="strict")
+        except UnicodeDecodeError:
+            raise PolicyError(source, "invalid UTF-8") from None
+    elif isinstance(content, str):
+        text = content
+    else:
+        raise TypeError("policy content must be str or bytes")
     try:
         value = json.loads(text, object_pairs_hook=_no_duplicates)
     except (json.JSONDecodeError, ValueError):
-        raise PolicyError(str(source_path), "invalid JSON") from None
+        raise PolicyError(source, "invalid JSON") from None
+    return load_policy_value(value, source)
+
+
+def load_policy_value(value: Any, source: str = "<memory:policy>") -> Policy:
+    """Validate one already-decoded policy value."""
     if not isinstance(value, dict):
-        raise PolicyError(str(source_path), "top level must be an object")
+        raise PolicyError(source, "top level must be an object")
     keys = set(value)
     if not TOP_REQUIRED_KEYS.issubset(keys) or not keys.issubset(
         TOP_REQUIRED_KEYS | TOP_OPTIONAL_KEYS
     ):
         raise PolicyError(
-            str(source_path), "top-level keys do not match the policy schema"
+            source, "top-level keys do not match the policy schema"
         )
     if value.get("schema_version") != "1":
-        raise PolicyError(str(source_path), "unsupported schema_version")
+        raise PolicyError(source, "unsupported schema_version")
     policy_id = value.get("id")
     if (
         not isinstance(policy_id, str)
@@ -186,10 +201,10 @@ def load_policy(path: str | Path) -> Policy:
             for char in policy_id
         )
     ):
-        raise PolicyError(str(source_path), "id has an invalid format")
+        raise PolicyError(source, "id has an invalid format")
     domain = value.get("domain", "baseline")
     if domain not in DOMAINS:
-        raise PolicyError(str(source_path), "domain has an invalid value")
+        raise PolicyError(source, "domain has an invalid value")
     runtimes = value.get("runtimes", sorted(RUNTIMES))
     if (
         not isinstance(runtimes, list)
@@ -197,11 +212,11 @@ def load_policy(path: str | Path) -> Policy:
         or any(item not in RUNTIMES for item in runtimes)
         or len(set(runtimes)) != len(runtimes)
     ):
-        raise PolicyError(str(source_path), "runtimes has an invalid value")
+        raise PolicyError(source, "runtimes has an invalid value")
     requirements = value.get("requirements")
     if not isinstance(requirements, list) or not requirements:
         raise PolicyError(
-            str(source_path), "requirements must be a non-empty array"
+            source, "requirements must be a non-empty array"
         )
     known = known_control_ids()
     seen: set[str] = set()
@@ -209,22 +224,22 @@ def load_policy(path: str | Path) -> Policy:
     for index, requirement in enumerate(requirements):
         label = f"requirements[{index}]"
         if not isinstance(requirement, dict):
-            raise PolicyError(str(source_path), f"{label} must be an object")
+            raise PolicyError(source, f"{label} must be an object")
         if not {"control_id", "expectation"}.issubset(requirement) or not set(
             requirement
         ).issubset(REQUIREMENT_KEYS):
             raise PolicyError(
-                str(source_path),
+                source,
                 f"{label} keys do not match the policy schema",
             )
         control_id = requirement.get("control_id")
         if not isinstance(control_id, str) or control_id not in known:
             raise PolicyError(
-                str(source_path), f"{label} contains an unknown control ID"
+                source, f"{label} contains an unknown control ID"
             )
         if control_id in seen:
             raise PolicyError(
-                str(source_path), f"{label} duplicates a control ID"
+                source, f"{label} duplicates a control ID"
             )
         seen.add(control_id)
         if (
@@ -232,28 +247,28 @@ def load_policy(path: str | Path) -> Policy:
             and control_id not in DOMAIN_CONTROLS[domain]
         ):
             raise PolicyError(
-                str(source_path),
+                source,
                 f"{label} control does not belong to the policy domain",
             )
         expectation = requirement.get("expectation")
         if expectation not in {"pass", "allow"}:
             raise PolicyError(
-                str(source_path), f"{label} has an unsupported expectation"
+                source, f"{label} has an unsupported expectation"
             )
         parameters = requirement.get("parameters", {})
         if not isinstance(parameters, dict):
             raise PolicyError(
-                str(source_path), f"{label}.parameters must be an object"
+                source, f"{label}.parameters must be an object"
             )
         supported = SUPPORTED_PARAMETERS.get(control_id, set())
         if not set(parameters).issubset(supported):
             raise PolicyError(
-                str(source_path),
+                source,
                 f"{label} contains an unsupported parameter",
             )
         if expectation == "allow" and parameters:
             raise PolicyError(
-                str(source_path),
+                source,
                 f"{label} cannot combine allow with parameters",
             )
         for name, parameter in parameters.items():
@@ -264,12 +279,12 @@ def load_policy(path: str | Path) -> Policy:
                 or parameter < 0
             ):
                 raise PolicyError(
-                    str(source_path),
+                    source,
                     f"{label} parameter must be a non-negative integer",
                 )
             if parameter_type == "boolean" and not isinstance(parameter, bool):
                 raise PolicyError(
-                    str(source_path),
+                    source,
                     f"{label} parameter must be a boolean",
                 )
             if parameter_type == "strings" and (
@@ -285,7 +300,7 @@ def load_policy(path: str | Path) -> Policy:
                 or len(set(parameter)) != len(parameter)
             ):
                 raise PolicyError(
-                    str(source_path),
+                    source,
                     f"{label} parameter must be an array of unique strings",
                 )
             allowed_values = PARAMETER_ENUMS.get(name)
@@ -293,7 +308,7 @@ def load_policy(path: str | Path) -> Policy:
                 allowed_values
             ):
                 raise PolicyError(
-                    str(source_path),
+                    source,
                     f"{label} parameter contains an unsupported value",
                 )
         normalized.append(
@@ -305,7 +320,7 @@ def load_policy(path: str | Path) -> Policy:
         )
     normalized.sort(key=lambda item: item["control_id"])
     return Policy(
-        source=str(source_path),
+        source=source,
         policy_id=policy_id,
         domain=domain,
         runtimes=tuple(sorted(runtimes)),
