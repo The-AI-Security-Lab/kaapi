@@ -948,3 +948,98 @@ only by a later entry that explicitly names the earlier decision.
 - Validation: The four golden cases, CLI/Python parity, deterministic repeat,
   malformed input, unsupported requirements, missing evidence, and the full
   P0/P1 regression suite.
+
+## DEC-040 — P2.1 workshop consumer validation and closure
+
+- Date: 2026-09-25
+- Context: The AI Security Lab workshop consumer validated the P2.1 public
+  Python integration after the implementation and acceptance review. The
+  validated candidate is branch `codex/p2.1-workshop-evaluation` at commit
+  `9a0bc6ba34576782675aded9e16b718c24fea9bd`.
+- Decision: Mark P2.1 complete. The milestone is suitable for the workshop's
+  configuration and organisational-policy analysis responsibility. The
+  public `kaapi.analyze_text(...)` integration, Claude Code and Codex golden
+  cases, conservative malformed/insufficient-evidence handling, and
+  deterministic assessment path are accepted at the validated commit.
+- Evidence boundary: The integration preserves the distinction between
+  configured authority, resolved permitted capabilities, observed behaviour,
+  and independently verified outcomes. Kaapi's configuration analysis does
+  not establish runtime enforcement or independently verified runtime
+  outcomes.
+- Follow-up: Malformed input currently exposes an internal exception type.
+  Define and document a stable public exception contract for API consumers as
+  part of P2.2A. This is a non-blocking follow-up and does not reopen P2.1.
+- Next stages: P2.2A is the local FastAPI REST API; P2.2B is the portable
+  Docker service; P2.3 expands the golden dataset and evidence/evaluation
+  integration; and P2.4 covers hosting, distribution, documentation, and
+  release readiness.
+- Boundary: Do not implement P2.2A, merge the branch, create a tag, or make a
+  release as part of this closure record.
+- Validation: Workshop consumer validation passed for public API consumption,
+  Claude insecure/hardened cases, Codex insecure/hardened cases, malformed and
+  insufficient evidence handling, determinism, and evidence-boundary
+  preservation. The Kaapi suite passed with 150 tests.
+
+## DEC-041 — P2.2A local FastAPI transport boundary
+
+- Date: 2026-09-25
+- Context: P2.1 established and workshop-validated the public in-process
+  `kaapi.analyze_text(...)` facade. P2.2A needs a small local HTTP boundary
+  for independent consumers without introducing another analysis engine.
+- Decision: Add an optional `http` package extra and a versioned FastAPI
+  application at `POST /v1/analyze`. The endpoint accepts a JSON object with
+  `runtime`, `config`, optional `policy`, and optional `source`; it returns the
+  existing Kaapi structured analysis document unchanged for valid requests.
+  The transport calls the public Python facade and does not own security or
+  workshop grading logic.
+- Public error contract: Export the existing safe `ConfigError` and
+  `PolicyError` classes from `kaapi`. HTTP clients receive stable JSON error
+  envelopes with `invalid_request`, `invalid_configuration`,
+  `invalid_policy`, `request_too_large`, or `internal_error` codes. Client
+  errors do not expose stack traces, filesystem details, or internal parser
+  types. An adverse security assessment remains a successful HTTP response.
+- Security boundary: Limit request bodies to 1 MiB, reject malformed or
+  unsupported envelopes, and pass configuration content as text only. The
+  endpoint does not accept paths, execute commands, fetch URLs, or perform
+  runtime enforcement. Configuration and resolved-capability evidence remains
+  distinct from runtime behaviour and independently verified outcomes.
+- Rationale: This is the smallest local REST adapter that proves an external
+  HTTP consumer can receive the same security and policy facts as the P2.1
+  Python interface while preserving offline operation and P1/P2.1 semantics.
+- Alternatives considered: A second HTTP-specific analysis model, path-based
+  uploads, authentication, persistence, queues, Docker packaging, and hosted
+  deployment; rejected as unnecessary or explicitly deferred to later stages.
+- Affected files: `kaapi/http_api.py`, public exception exports,
+  `pyproject.toml`, `uv.lock`, HTTP tests, and API documentation.
+- Validation: 25 focused HTTP tests, 175 full-suite tests, Python/HTTP parity,
+  four golden cases, malformed/unsupported/oversized input handling,
+  deterministic repetition, safe error responses, and an external `curl`
+  request against a running local service.
+
+## DEC-042 — P2.2A independent acceptance and closure
+
+- Date: 2026-09-25
+- Context: An independent security acceptance review assessed the P2.2A
+  implementation on branch `codex/p2.2a-local-fastapi`, based on P2.1 commit
+  `9a0bc6ba34576782675aded9e16b718c24fea9bd`.
+- Decision: Accept and mark P2.2A complete. The local FastAPI transport is
+  suitable as a small deterministic, fail-safe HTTP boundary around Kaapi's
+  existing analysis engine.
+- Accepted evidence: The review independently verified public
+  `kaapi.analyze_text(...)` routing, absence of a second analysis or policy
+  engine, exact Python/HTTP parity for all four P2.1 golden cases, valid
+  adverse assessments returning HTTP 200, fail-safe malformed and unsupported
+  input handling, the raw 1 MiB request-body boundary, public exception
+  exports, safe client errors, the absence of request-triggered file/network/
+  process side effects, deterministic repeated requests, and a separately
+  running Uvicorn process exercised over real HTTP.
+- Evidence boundary: The HTTP service establishes configured authority,
+  resolved permitted capabilities, static findings, policy evidence, and
+  independently observed HTTP service behaviour. It does not establish runtime
+  agent enforcement or independently verified agent outcomes.
+- Validation: 25 focused P2.2A tests and 175 total tests passed;
+  `git diff --check` passed. One non-blocking Starlette/httpx deprecation
+  warning remains.
+- Status: P2.1 is complete; P2.2A is complete; P2.2B, the portable Docker
+  service, is next and not started. No Docker, cloud, authentication,
+  frontend, merge, tag, or release work is included.

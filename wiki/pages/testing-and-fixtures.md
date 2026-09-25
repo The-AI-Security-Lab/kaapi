@@ -1,8 +1,10 @@
 # Testing and fixtures
 
-The P0+P1 acceptance suite is under `tests/` and covers parser and resolver
-behavior, controls, fixtures, CLI contracts, determinism, offline operation,
-read-only inspection, schema validation, baselines, policy, and verification.
+The P0+P1 acceptance suite, P2.1 workshop-evaluation tests, and P2.2A HTTP
+tests are under `tests/`. They cover parser and resolver behavior, controls,
+fixtures, CLI contracts, determinism, offline operation, read-only inspection,
+schema validation, baselines, policy, the in-memory Python API, HTTP transport,
+and verification.
 
 The canonical demonstration fixtures are:
 
@@ -16,6 +18,9 @@ The canonical demonstration fixtures are:
 - `fixtures/codex-danger/config.toml` — no-sandbox/no-approval secret-safety case.
 - `fixtures/codex-env/` — system/user precedence and unobserved project trust.
 - `examples/policies/` — templates, domain references, and policy bundles.
+- `evaluation/p2_1/` — four declarative workshop golden cases and the
+  external-style grading harness.
+- `wiki/pages/p2-2a-http-api.md` — local REST contract and evidence boundary.
 
 Run the full suite from the repository root:
 
@@ -23,7 +28,10 @@ Run the full suite from the repository root:
 uv run pytest
 ```
 
-The current P1 release-candidate gate is `133 passed`. Policy tests cover
+The released P0/P1 gate is `133 passed`; the current development suite is
+`175 passed`. P2.1 tests cover four golden cases, CLI/Python policy parity,
+deterministic repeatability, malformed input, unsupported requirements, missing
+evidence, and fail-closed `INCONCLUSIVE`/`NOT_TESTED` outcomes. Policy tests cover
 independent validation, malformed and unknown input, unsupported parameters,
 executable shape rejection, baseline non-suppression, separate verdicts,
 `PERMITTED_RISK`, deterministic output, no network/model calls, read-only
@@ -35,6 +43,11 @@ The additional Python API tests cover Claude JSON and Codex TOML known
 answers, CLI/output parity apart from source identity, source locations,
 malformed input, unknown security fields, determinism, secret redaction, and
 the no-temporary-file contract.
+
+P2.2A tests cover the four golden cases over HTTP, Python/HTTP parity,
+malformed and unsupported requests, bounded request size, safe client errors,
+unsupported policy runtimes, deterministic repetition, and the running-service
+black-box check documented in the P2.2A page.
 
 Release validation builds both the source distribution and wheel offline,
 installs the wheel into an isolated environment, and exercises the installed

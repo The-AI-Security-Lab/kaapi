@@ -13,8 +13,10 @@ Start with the overview, then follow the architecture and testing pages.
 | [P1 Codex adapter](pages/p1-codex.md) | Supported Codex TOML surfaces, precedence, and conservative boundaries. |
 | [Organisational policies](pages/organisational-policies.md) | Closed policy schema, independent verdicts, and PERMITTED_RISK. |
 | [Testing and fixtures](pages/testing-and-fixtures.md) | Acceptance tests, fixtures, and validation commands. |
-| [Roadmap](pages/roadmap.md) | Completed P0/P1 releases and planned P2/P3 boundaries. |
+| [Roadmap](pages/roadmap.md) | Current P0/P1 releases, completed P2.1/P2.2A, and planned P2.2B–P2.4/P3 boundaries. |
 | [LLM wiki pattern](pages/llm-wiki-pattern.md) | Project-specific application of the persistent wiki workflow. |
+| [P2.1 workshop evaluation](pages/p2-1-evaluation.md) | In-memory policy evaluation, golden cases, grading, and remaining P2 work. |
+| [P2.2A local REST API](pages/p2-2a-http-api.md) | Accepted versioned local FastAPI transport, public errors, parity, and security boundaries. |
 
 ## Authority and source register
 

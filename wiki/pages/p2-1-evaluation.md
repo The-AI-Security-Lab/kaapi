@@ -2,9 +2,11 @@
 
 ## Scope and status
 
-P2.1 is the first implemented slice of the approved P2 Evaluation Integration
-& API roadmap. It is present on the current development branch, not in the
-released `v1.1.0` tag. The slice connects a workshop security requirement to a
+P2.1 is the completed first slice of the approved P2 Evaluation Integration &
+API roadmap. It was workshop-validated on branch
+`codex/p2.1-workshop-evaluation` at commit
+`9a0bc6ba34576782675aded9e16b718c24fea9bd`; it is not in the released
+`v1.1.0` tag. The slice connects a workshop security requirement to a
 configuration, Kaapi's deterministic assessment, and an external-style grade
 without adding runtime execution or an HTTP service.
 
@@ -44,6 +46,12 @@ The harness also fails closed:
 - `PASS` requires the selected policy requirement to pass;
 - `FAIL` represents an evaluated non-pass requirement.
 
+Workshop consumer validation confirmed public API consumption, all four
+insecure/hardened cases, conservative malformed and insufficient-evidence
+handling, deterministic results, and preservation of configuration evidence
+as distinct from runtime behaviour and independently verified outcomes. The
+Kaapi suite passed with 150 tests.
+
 Run one checked-in case with:
 
 ```console
@@ -51,12 +59,20 @@ uv run python -m evaluation.p2_1.harness \
   evaluation/p2_1/golden/claude-insecure
 ```
 
-## Remaining P2 work
+## Follow-up and next stages
 
-The versioned HTTP adapter, hosted-deployment evaluation, full AI Security Lab
-golden dataset integration, and CLI/Python/HTTP equivalence checks remain
-planned P2 work. P3 remains the deferred adapter, mapping, SARIF,
-blast-radius, and model-narrated explanation backlog.
+Malformed input currently exposes an internal exception type. A stable and
+documented public exception contract is a non-blocking P2.2A follow-up and
+does not reopen P2.1.
+
+- P2.2A — Local FastAPI REST API (complete and independently accepted; see
+  [P2.2A](p2-2a-http-api.md)).
+- P2.2B — Portable Docker service.
+- P2.3 — Golden dataset and evidence/evaluation expansion.
+- P2.4 — Hosting, distribution, documentation, and release readiness.
+
+P3 remains the deferred adapter, mapping, SARIF, blast-radius, and
+model-narrated explanation backlog.
 
 ## References
 

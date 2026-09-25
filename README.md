@@ -8,9 +8,10 @@ static configuration potential, not runtime behavior.
 
 Kaapi `1.1.0` adds a thin Codex `config.toml` adapter, closed-data
 organisational policy overlays, and a public in-process Python analysis API.
-The P2.1 workshop evaluation slice is implemented on the current development
-branch; the remaining P2 HTTP/API work and P3 backlog are not part of this
-release.
+The P2.1 workshop evaluation slice is complete and validated on
+`codex/p2.1-workshop-evaluation` at commit
+`9a0bc6ba34576782675aded9e16b718c24fea9bd`. The remaining P2 stages are
+documented below; they are not part of this release.
 
 ## P1 milestone
 
@@ -136,11 +137,34 @@ The external-style harness owns grading and preserves Kaapi's policy result,
 findings, evidence, and static-analysis limitations. It reports `PASS`,
 `FAIL`, `INCONCLUSIVE`, or `NOT_TESTED`; it does not execute an agent.
 
-This is an in-process Python API, not an HTTP service. Kaapi does not ship
-FastAPI, a hosted endpoint, authentication, or a browser upload/paste flow. A
-remote or browser consumer needs its own thin backend adapter. The first
-P2.1 slice intentionally leaves the HTTP API and hosted deployment for the
-remaining P2 work.
+The P2.2A local REST service is an optional HTTP extra. It does not add
+authentication, persistence, hosted deployment, or a browser upload/paste
+flow. A remote or browser consumer still needs its own deployment boundary.
+
+### Local FastAPI API
+
+Install the local HTTP extra and start the versioned service:
+
+```console
+uv sync --extra http
+uv run uvicorn kaapi.http_api:app --host 127.0.0.1 --port 8000
+```
+
+Submit a supported Claude JSON or Codex TOML configuration as text:
+
+```console
+curl -X POST http://127.0.0.1:8000/v1/analyze \
+  -H 'content-type: application/json' \
+  --data '{"runtime":"claude-code","config":"{\"sandbox\":{\"enabled\":true}}"}'
+```
+
+The request object accepts `runtime`, `config`, optional `policy`, and optional
+`source`. The successful response is the same structured document returned by
+`analyze_text(...)`; an adverse `posture` or policy verdict is still an HTTP
+200 response. Invalid requests use a stable `{"error":{"code":...,"message":...}}`
+envelope and never expose stack traces or filesystem details. Request bodies
+are limited to 1 MiB. The service performs static configuration analysis only;
+it does not execute agents or verify runtime enforcement.
 
 ## Understand the result
 
@@ -625,8 +649,9 @@ Use `--format json` to consume `security_posture` and
 | --- | --- | --- |
 | P0 (`v1.0.0`) | Complete | Deterministic Claude Code configuration analysis and verification foundation |
 | P1 (`v1.1.0`) | Complete | Codex support, organisational policy-as-code, independent verdicts, and the in-process Python API |
-| P2.1 | Implemented on development branch | Public policy evaluation and four-case workshop golden harness |
-| P2 | In progress | Remaining versioned deterministic HTTP API and hosting-feasibility work |
+| P2.1 | Complete and validated | Public policy evaluation and four-case workshop golden harness |
+| P2.2A | Complete and accepted | Local FastAPI REST API with Python/HTTP parity and stable client errors |
+| P2.2B–P2.4 | Planned next stages | Portable Docker service, dataset/evidence expansion, and hosting/distribution/release readiness |
 | P3 | Planned backlog, not implemented | Deferred adapters, mappings, SARIF, blast-radius modelling, and usability enhancements |
 
 P2 reuses the existing deterministic engine and will not make hosted

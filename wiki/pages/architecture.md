@@ -103,22 +103,27 @@ Charlie
 ```
 
 The supported entry point is `kaapi.analyze_text(content, runtime=...,
-source=...)`; it is a general Kaapi library capability, not a Charlie-specific
-fork. It uses the existing parsers and analysis pipeline and does not write a
-temporary configuration file. The first facade version does not accept policy
-inputs. Kaapi does not ship an HTTP service, and a consumer remains responsible
-for any FastAPI/backend, authentication, upload, or browser boundary.
+source=..., policy=...)`; it is a general Kaapi library capability, not a
+Charlie-specific fork. It uses the existing parsers, policy evaluator, and
+analysis pipeline and does not write a temporary configuration file. Policy
+input is optional and accepts the same closed policy shapes supported by the
+P2.1 in-memory boundary. P2.2A also provides an optional local FastAPI
+transport at `POST /v1/analyze`; hosted deployment, authentication, upload,
+and browser boundaries remain consumer responsibilities.
 CLI/subprocess integration remains a possible fallback when process isolation
 or independent deployment is more important, but it is not the preferred seam.
 
-## Planned P2 integration boundary
+## P2 integration boundary
 
-P2 is the planned Evaluation Integration & API phase. It will extend the
-public API to organisational-policy evaluation, add a small versioned and
-deterministic HTTP adapter, and integrate Kaapi evidence with the AI Security
-Lab golden evaluation dataset and verification harness. Equivalent supported
-inputs should produce equivalent assessments through the CLI, Python API, and
-HTTP API.
+P2.1 implements the in-memory organisational-policy evaluation boundary and a
+small external-style four-case workshop harness under `evaluation/p2_1/`. The
+harness owns grading while Kaapi owns deterministic analysis, policy results,
+findings, evidence, and static-analysis limitations.
+
+P2.2A implements the small versioned and deterministic local HTTP adapter and
+demonstrates equivalent assessments through the Python and HTTP APIs.
+Remaining P2 work is portable Docker packaging, hosting feasibility, and full
+AI Security Lab golden evaluation dataset integration.
 
 The HTTP layer will reuse the existing analysis engine; it will not introduce
 a second implementation. Cloudflare may be evaluated as an optional hosting
@@ -131,7 +136,8 @@ classified as P3 and is not implemented.
 ## Current limitations relevant to Charlie
 
 - No runtime telemetry or runtime enforcement.
-- No hosted API and no natural-language policy interpretation.
+- No hosted API, full evaluation-dataset integration, or natural-language
+  policy interpretation.
 - No Codex `.rules` analysis or project-trust observation.
 - Environment exposure is only partially modeled.
 - Codex `allow_login_shell` is parsed and validated but does not currently

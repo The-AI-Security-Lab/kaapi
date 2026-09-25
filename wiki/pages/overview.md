@@ -28,21 +28,24 @@ not currently implemented.
 - P1 adds a thin Codex TOML adapter with a runtime-specific baseline 0.4.0.
 - Organisational policies are closed data evaluated independently of baseline
   posture.
+- P2.1 adds in-memory policy input to the Python API and a four-case workshop
+  evaluation harness; P2.2A adds the optional local FastAPI transport.
 - Analysis is offline, model-free, does not call hosted APIs, and is read-only
   for inspected files.
-- `kaapi.analyze_text(...)` provides an in-process Python API; Kaapi does not
-  ship an HTTP service or hosted endpoint.
+- `kaapi.analyze_text(...)` provides an in-process Python API, and P2.2A adds a
+  versioned local HTTP endpoint; Kaapi does not provide a hosted endpoint.
 - Sensitive hook and MCP values are redacted from output and snapshots.
 - Findings, baseline snapshots, and CLI output are deterministic.
 - Baseline and rule provenance identify which versioned controls were applied.
 
-## P1 boundary
+## Current release and development boundary
 
 Cursor, Gemini, GitHub Copilot, blast radius, Arcanum/OWASP mappings, SARIF,
-and `explain` remain unavailable in `v1.1.0`. P2 is the planned Evaluation
-Integration & API phase; the earlier feature backlog has moved to P3. Neither
-planned phase is implemented. The additional Claude Settings Test Suite is a
-separate, non-gating adversarial benchmark.
+and `explain` remain unavailable in `v1.1.0`. P2.1 and P2.2A are implemented
+on the development branch; portable packaging, hosted integration, and the
+expanded dataset remain planned P2 work. The earlier feature backlog has moved
+to P3. The additional Claude Settings Test Suite is a separate, non-gating
+adversarial benchmark.
 
 The Codex adapter intentionally does not infer project trust, CLI overrides,
 managed requirements, permission profiles, hooks, apps, plugins, skills, or
