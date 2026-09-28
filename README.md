@@ -1,52 +1,94 @@
-# Kaapi P1 — v1.1.0
+# Kaapi — Security Analysis for AI Coding Agents
 
-Kaapi is a deterministic, local-first security posture and
-configured-capability analyser for observed Claude Code and Codex settings. It
-is offline, model-free, does not call hosted APIs, is read-only with respect to
-inspected configuration, and redacts sensitive hook and MCP values. It reports
-static configuration potential, not runtime behavior.
+Kaapi is an open-source [AI Security Lab](https://www.aisecuritylab.com/)
+project that helps security and engineering teams understand what AI coding
+agents are configured and permitted to do. It deterministically analyses
+supported agent configurations, identifies security-relevant weaknesses, and
+evaluates resolved capabilities against organisational security requirements.
 
-Kaapi `1.1.0` adds a thin Codex `config.toml` adapter, closed-data
-organisational policy overlays, and a public in-process Python analysis API.
-Planned P2 and P3 capabilities are not available in this release.
+**Current release: `v1.1.0` (P1)**
 
-## P1 milestone
+Supports Claude Code and Codex. Local, offline after installation, model-free,
+deterministic, and read-only with respect to the configuration being
+inspected.
 
-P1 is cumulative: it preserves the complete P0 Claude Code analyser and adds
-Codex configuration analysis, custom organisational policies, and the public
-`analyze_text(...)` facade. Codex does not replace or weaken the Claude path.
+## Why Kaapi
 
-| Capability | P0 | P1 |
-| --- | --- | --- |
-| Claude Code settings analysis | Included | Preserved and regression-tested |
-| Claude baseline and snapshots | Included | Preserved at baseline 0.3.1 |
-| Codex `config.toml` analysis | Not included | Added with baseline 0.4.0 |
-| Custom organisational policies | Not included | Added for Claude and Codex |
-| In-process Python analysis API | Not included | Added for Claude and Codex |
-| Deterministic, offline, read-only analysis | Included | Preserved |
+AI coding agents can be given significant authority through configuration:
+filesystem access, command execution, sandbox and approval settings, external
+integrations such as MCP servers, and configuration governing access to
+developer environments. These settings are spread across runtime-specific
+formats and can be difficult to review consistently.
 
-The combined P0+P1 acceptance suite passes with 133 tests. Those tests cover
-the original Claude parser, resolution, findings, fixtures, CLI, and snapshot
-contracts as well as the Codex, policy, and in-memory Python API paths.
+Kaapi helps teams answer practical questions:
 
-The build specification remains authoritative. Implementation decisions and
-scope exclusions are recorded in [`Decisions.MD`](Decisions.MD), and the
-maintained wiki starts at [`wiki/index.md`](wiki/index.md).
+- What is this coding agent configured to do?
+- Which capabilities are permitted by its resolved configuration?
+- Which security-relevant configuration weaknesses are present?
+- Does the configuration satisfy an organisation's security policy?
+- Did a configuration change improve or weaken the assessed posture?
 
-P1 does not include an HTTP service, hosted deployment, policy inputs through
-`analyze_text(...)`, runtime execution, or the planned P2/P3 backlog. See the
-[roadmap](wiki/pages/roadmap.md) for the approved phase boundaries.
+Kaapi answers these questions through static configuration evidence. It does
+not execute the agent or claim that configured controls were enforced at
+runtime.
+
+## Current capabilities
+
+Released `v1.1.0` includes:
+
+| Capability | Current support |
+| --- | --- |
+| Claude Code | Strict JSON parsing, staged configuration discovery, capability resolution, security findings, snapshots, and verification |
+| Codex | Conservative TOML parsing and resolution for supported approval, sandbox, network, filesystem, web-search, and MCP settings |
+| Security posture | Versioned runtime baselines with deterministic findings, severity, evidence, remediation, and provenance |
+| Organisational policy-as-code | Closed JSON policies, composition from files or directories, and independent `PASS`, `FAIL`, or `PERMITTED_RISK` verdicts |
+| Change assessment | Secret-safe snapshots and deterministic comparison of assessed configuration changes |
+| Interfaces | CLI workflows and the public in-process `kaapi.analyze_text(...)` Python API |
+| Operating model | Local, offline after installation, model-free, deterministic, and read-only for inspected configuration |
+
+The built-in baseline and organisational policy remain independent: accepting
+a capability in organisational policy never removes or downgrades a security
+finding. Claude uses baseline `0.3.1`; Codex uses baseline `0.4.0`; these
+baseline versions are independent of the Kaapi package version.
+
+## Evidence boundary
+
+Kaapi primarily establishes evidence about:
+
+1. **Configured authority** — security-relevant settings observed in supported
+   configuration sources.
+2. **Resolved permitted capabilities** — what those settings permit after
+   applying Kaapi's documented precedence and resolution rules.
+
+Configuration analysis alone does **not** establish:
+
+3. **Observed runtime behaviour** — what the agent actually attempted or did.
+4. **Independently verified security outcomes** — whether runtime controls were
+   enforced or a vulnerability was remediated in practice.
+
+> Kaapi evaluates whether coding-agent configuration and resolved capabilities
+> satisfy the supplied organisational policy.
+
+A Kaapi `PASS` is evidence about the supported configuration surfaces that
+were assessed. It is not proof that an agent will obey policy at runtime.
+Likewise, snapshot reduction shows an improvement between assessed
+configurations; it does not by itself prove runtime remediation.
 
 ## Contents
 
+- [Why Kaapi](#why-kaapi)
+- [Current capabilities](#current-capabilities)
+- [Evidence boundary](#evidence-boundary)
 - [Quick start](#quick-start)
-- [Understand the result](#understand-the-result)
-- [Test the complete P1 milestone](#test-the-complete-p1-milestone)
+- [Results and exit codes](#results-and-exit-codes)
+- [Test the released P1 milestone](#test-the-released-p1-milestone)
 - [Snapshot and CI workflows](#snapshot-and-ci-workflows)
 - [Organisational policy guide](#organisational-policy-guide)
 - [Roadmap](#roadmap)
+- [AI Security Lab](#ai-security-lab)
 - [CLI reference](#cli-reference)
 - [Staged discovery](#staged-discovery)
+- [License](#license)
 
 ## Quick start
 
@@ -62,15 +104,11 @@ uv sync --frozen --group dev
 uv run kaapi --version
 ```
 
-The version command reports `kaapi 1.1.0`. Package releases and security
-baseline versions are independent: Claude uses baseline `0.3.1` and Codex uses
-baseline `0.4.0`.
+The version command reports `kaapi 1.1.0`. The initial dependency installation
+may require package-registry access, but Kaapi does not use a model, API key,
+or network connection while analysing configuration.
 
-The initial dependency installation may require package-registry access. Kaapi
-itself does not use a model, API key, or network connection while analysing
-configuration.
-
-### 2. Scan Claude or Codex
+### 2. Analyse Claude Code or Codex
 
 Kaapi reads the supplied file and does not modify it:
 
@@ -86,7 +124,7 @@ uv run kaapi check ~/.claude/settings.json --runtime claude-code --format json -
 uv run kaapi check ~/.codex/config.toml --runtime codex --format json --output codex-posture.json
 ```
 
-### 3. Apply an organisational policy
+### 3. Validate and apply an organisational policy
 
 ```console
 uv run kaapi policy validate examples/policies/template.json
@@ -97,44 +135,48 @@ uv run kaapi check ~/.codex/config.toml --runtime codex --policy examples/polici
 The template uses controls shared by both runtimes. Build a team-specific
 policy with the [organisational policy guide](#organisational-policy-guide).
 
-### Python library entry point
+### 4. Use the Python API
 
-For in-process callers, Kaapi exposes a small public facade that accepts
-configuration content directly and returns the same versioned structured
-analysis document as `check`:
+The public in-process API accepts configuration content directly and returns
+the same versioned structured analysis document as `kaapi check`:
 
 ```python
+from pathlib import Path
+
 from kaapi import analyze_text
 
-document = analyze_text(
-    config_content,
-    runtime="claude-code",  # or "codex"
-    source="settings.json",  # optional display identifier
+claude_result = analyze_text(
+    Path("settings.json").read_text(encoding="utf-8"),
+    runtime="claude-code",
+    source="settings.json",
+)
+
+codex_result = analyze_text(
+    Path("config.toml").read_text(encoding="utf-8"),
+    runtime="codex",
+    source="config.toml",
 )
 ```
 
-`config_content` may be UTF-8 `str` or `bytes`. Without `source`, evidence uses
-a deterministic synthetic identifier such as `<memory:claude-code>`; no
-temporary configuration file is written. Parsing and validation errors raise
-the existing `ConfigError`. The facade is a general Kaapi library capability,
-not a Charlie-specific API. The existing CLI, snapshots, verification, and
-closed organisational-policy workflows remain supported; the first facade
-version does not expand the policy API.
+Content may be a UTF-8 `str` or `bytes`. Without `source`, Kaapi uses a
+deterministic synthetic evidence identifier such as `<memory:claude-code>` and
+does not create a temporary file. Parsing and validation errors raise
+`ConfigError`.
 
-This is an in-process Python API, not an HTTP service. Kaapi does not ship
-FastAPI, a hosted endpoint, authentication, or a browser upload/paste flow. A
-remote or browser consumer needs its own thin backend adapter. The first
-`analyze_text` version also does not accept organisational-policy inputs; use
-the CLI policy workflow for policy evaluation.
+The released `analyze_text(...)` API does **not** accept organisational-policy
+inputs. Use the CLI policy workflow for policy evaluation. Kaapi `v1.1.0` also
+does not include FastAPI, an HTTP endpoint, authentication, a hosted service,
+or a browser upload flow; these must not be inferred from the in-process API.
 
-## Understand the result
+## Results and exit codes
 
-Kaapi reports two independent questions:
+Kaapi reports security posture and organisational-policy compliance
+independently:
 
 | Result | Question answered |
 | --- | --- |
 | `posture` / `security_posture` | Does the built-in runtime baseline find configured risk? |
-| `organisation_policy.verdict` | Does the configuration meet the supplied team policy? |
+| `organisation_policy.verdict` | Does the configuration and resolved capability set satisfy the supplied policy? |
 
 Policy `PERMITTED_RISK` never removes or downgrades a baseline finding.
 
@@ -145,7 +187,7 @@ Policy `PERMITTED_RISK` never removes or downgrades a baseline finding.
 | 2 | Invalid CLI usage |
 | 3 | Configuration or policy parsing failed safely |
 
-## Test the complete P1 milestone
+## Test the released P1 milestone
 
 Run all automated P0 and P1 tests first:
 
@@ -606,18 +648,45 @@ Use `--format json` to consume `security_posture` and
 
 ## Roadmap
 
-| Phase | Status | Scope |
-| --- | --- | --- |
-| P0 (`v1.0.0`) | Complete | Deterministic Claude Code configuration analysis and verification foundation |
-| P1 (`v1.1.0`) | Complete | Codex support, organisational policy-as-code, independent verdicts, and the in-process Python API |
-| P2 | Planned, not implemented | Evaluation Integration & API: public policy evaluation, a small deterministic HTTP API, and golden-evaluation integration |
-| P3 | Planned backlog, not implemented | Deferred adapters, mappings, SARIF, blast-radius modelling, and usability enhancements |
+### P0 — Foundation · Complete
 
-P2 will reuse the existing deterministic engine and will not make hosted
-deployment, an LLM, or runtime execution a dependency of local Kaapi usage.
-P3 is a backlog rather than a commitment to implement every listed feature.
-The detailed approved roadmap is maintained in
-[`wiki/pages/roadmap.md`](wiki/pages/roadmap.md).
+Claude Code configuration analysis, capability resolution, security posture
+checks, snapshots and verification, and local CLI workflows (`v1.0.0`).
+
+### P1 — Multi-runtime & Policy · Released (`v1.1.0`)
+
+Codex support, organisational policy-as-code, independent security and policy
+verdicts, and the public in-process Python API.
+
+### P2 — Evaluation & API · In development
+
+Evaluation integration, deterministic HTTP/API access, portable service
+packaging, expanded security evaluations and evidence, and
+distribution/deployment readiness. **P2 functionality is unreleased and is
+not available in `v1.1.0`.**
+
+### P3 — Broader Analysis & Reporting · Planned
+
+Broader coding-agent coverage, security mappings, capability and blast-radius
+analysis, machine-readable reporting, and usability improvements.
+
+P2 will reuse the deterministic Kaapi engine; an LLM or runtime execution will
+not become a dependency of local analysis. P3 is a backlog rather than a
+commitment to implement every listed feature. See the
+[authoritative roadmap](wiki/pages/roadmap.md) and
+[decision log](Decisions.MD) for the detailed boundaries.
+
+## AI Security Lab
+
+Kaapi is an open-source project from
+[AI Security Lab](https://www.aisecuritylab.com/). The broader Lab work covers
+AI security research, practical methodology, education, and related open
+projects. Kaapi focuses specifically on deterministic configuration and
+configured-capability evidence for supported AI coding agents.
+
+Project details are maintained in the
+[build specification](docs/KAAPI_BUILD_SPEC_v1.3.md),
+[decision log](Decisions.MD), and [project wiki](wiki/index.md).
 
 ## CLI reference
 
@@ -677,3 +746,7 @@ DIR/project/.codex/config.toml     # detected, not applied without observed trus
 System values are below user values. Supply a project `config.toml` explicitly
 to analyse that document reproducibly; automatic project-layer application
 requires a future supported trust observation.
+
+## License
+
+Kaapi is available under the [Apache License 2.0](LICENSE).
